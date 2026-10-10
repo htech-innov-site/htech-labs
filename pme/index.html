@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestion commerciale — H TECH Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{--navy:#0A2A66;--blue:#1565C0;--green:#3F8A1E;--green-l:#EDF6E8;--light:#F4F7FC;--line:#D5E0F0;--txt:#1E283C;--grey:#5E6B82;--amber:#B45309;--amber-l:#FEF3E2;--red:#B42318;--red-l:#FDECEC}
+*{box-sizing:border-box}html,body{margin:0}body{font-family:'Source Sans 3',system-ui,sans-serif;color:var(--txt);background:var(--light);font-size:16px;line-height:1.5}
+h1,h2,h3{font-family:Montserrat,system-ui,sans-serif;color:var(--navy);margin:0;line-height:1.25}h1{font-size:24px;font-weight:800}h2{font-size:17px;font-weight:700}
+a{color:var(--blue)}button,input,select,textarea{font:inherit}:focus-visible{outline:3px solid #9CC3F5;outline-offset:2px}
+.barre-top{height:5px;background:linear-gradient(90deg,var(--navy) 0 85%,var(--green) 85%)}
+header.top{background:#fff;border-bottom:1px solid var(--line)}.wrap-l{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 20px;min-height:62px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}.logo b{font-family:Montserrat;font-weight:800;color:var(--navy);font-size:16px}.logo span{display:block;font-size:13px;color:var(--grey)}
+.qui{display:flex;gap:8px;align-items:center}.reste{font-family:Montserrat;font-weight:800;color:var(--navy);background:var(--light);border-radius:16px;padding:3px 10px;font-size:14px}
+.corps{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 67px)}
+.menu{background:#fff;border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.menu a{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:8px;color:var(--txt);text-decoration:none;font-weight:600;font-size:15px}
+.menu a:hover{background:var(--light)}.menu a.on{background:var(--navy);color:#fff}
+main#vue{padding:24px;max-width:1180px;width:100%}main#vue>*+*{margin-top:18px}
+.carte{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px}.carte.tab{padding:0;overflow-x:auto}
+.tete{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}.tete.s{align-items:center;margin-bottom:10px}.actions{display:flex;gap:8px;flex-wrap:wrap}
+.note{color:var(--grey);font-size:14.5px;margin:2px 0 0}.fil{margin:0;font-size:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--navy);padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:15px;text-decoration:none}
+.btn:hover{border-color:var(--blue)}.btn.p{background:var(--navy);border-color:var(--navy);color:#fff}.btn.p:hover{background:var(--blue)}.btn.g{background:var(--green);border-color:var(--green);color:#fff}.btn.s{padding:5px 10px;font-size:14px}.btn[disabled]{opacity:.5}
+.lien{background:none;border:0;color:var(--blue);cursor:pointer;padding:0;text-decoration:underline}
+.outils{display:flex;gap:8px;flex-wrap:wrap}.outils .in{width:auto;min-width:200px;flex:1}.outils select.in{flex:0 1 220px}
+.in{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff}
+label.f{display:block;font-weight:600;font-size:14px;margin:0 0 4px;color:var(--navy)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}.form .large{grid-column:1/-1}.geo{display:flex;gap:6px}.case{display:flex;gap:8px;align-items:center}
+.err{color:var(--red);font-size:14.5px;min-height:20px;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:15px}th{text-align:left;color:var(--grey);font-weight:600;font-size:13.5px;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}tbody tr[tabindex]{cursor:pointer}tbody tr[tabindex]:hover{background:#F8FAFE}.vide{text-align:center;color:var(--grey);padding:28px}
+table.lignes td{padding:4px}table.lignes .in{padding:6px 8px}
+.champs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px 20px;margin:0}.champ dt{font-size:13.5px;color:var(--grey);font-weight:600}.champ dd{margin:2px 0 0}.champ.large{grid-column:1/-1}
+.pastille{display:inline-block;font-size:13px;font-weight:700;padding:2px 9px;border-radius:12px;background:var(--light);color:var(--navy);white-space:nowrap}
+.barre-pct{display:inline-block;width:70px;height:7px;border-radius:4px;background:#E3EAF6;vertical-align:middle;position:relative;overflow:hidden}.barre-pct i{position:absolute;inset:0 auto 0 0;background:var(--blue)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}.kpi span{display:block;font-size:14px;color:var(--grey);font-weight:600}.kpi b{display:block;font-family:Montserrat;font-size:24px;color:var(--navy)}.kpi small{color:var(--grey)}
+.kpi.alerte{border-color:#F3C98B;background:var(--amber-l)}.kpi.alerte b{color:var(--amber)}.kpi.ok b{color:var(--green)}
+dialog{border:0;border-radius:12px;padding:0;max-width:760px;width:calc(100% - 24px);box-shadow:0 20px 60px rgba(6,28,72,.25)}dialog::backdrop{background:rgba(6,28,72,.45)}
+dialog .hd{padding:16px 20px;border-bottom:1px solid var(--line)}dialog .bd{padding:16px 20px;max-height:70vh;overflow:auto}dialog .ft{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;z-index:99}
+.liste-simple{list-style:none;margin:0;padding:0}.liste-simple li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.liste-simple li:first-child{border-top:0}
+@media (max-width:860px){.corps{grid-template-columns:1fr}.menu{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.menu a span{white-space:nowrap}.form{grid-template-columns:1fr}main#vue{padding:16px}.qui .btn:not(.s){display:none}}
+@media print{header.top,.menu,.actions,.btn{display:none!important}.corps{display:block}body{background:#fff}.carte{border:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+</style>
+</head>
+<body>
+<div class="barre-top"></div>
+<div id="app" aria-live="polite"><p style="padding:24px;color:#5E6B82">Chargement…</p></div>
+<script>
+// ── Configuration : mêmes valeurs que le portail H TECH Labs (projet Supabase htech-labs) ──
+const SUPABASE_URL='https://lqmgmkbwrkggvlvjrufo.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxbWdta2J3cmtnZ3ZsdmpydWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NDMwMDcsImV4cCI6MjEwNzIxOTAwN30.Cvyviw8ZmQgs43ZrILTWj4mh81r_hYoR1hlamypLOVg';
+// ══════════════════════════════════════════════════════════════════════
+// H TECH LABS — Noyau commun des plateformes (connexion, espace, listes, fiches,
+// formulaires, fichiers, export, journal). Chaque plateforme définit APP = {…}.
+// ══════════════════════════════════════════════════════════════════════
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const BUCKET='labs-fichiers';
+let USER=null,ESP=null,EQUIPE=false,VUE={nom:'accueil'},CACHE={},MEMBRES=[];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>{const n=parseFloat(String(v??'').replace(/\s/g,'').replace(',','.'));return isNaN(n)?0:n;};
+const fcfa=v=>Math.round(num(v)).toLocaleString('fr-FR').replace(/\u202f|\u00a0/g,' ')+' FCFA';
+const dfr=d=>d?new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+const dlong=d=>d?new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'';
+const auj=()=>new Date().toISOString().slice(0,10);
+const jours=(a,b)=>Math.round((new Date(String(b).slice(0,10)+'T12:00:00')-new Date(String(a).slice(0,10)+'T12:00:00'))/864e5);
+function toast(m,ms=3500){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),ms);}
+const ICO={maison:'M3 11l9-7 9 7v9H5v-9',liste:'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01'};
+const ico=d=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+const ENT=k=>APP.entites.find(e=>e.k===k);
+
+// ── Démarrage : session, espace, droits ──
+async function boot(){
+  const{data}=await sb.auth.getSession();USER=data.session?.user||null;
+  if(!USER||USER.user_metadata?.mdp_provisoire){location.href='../';return;}
+  const{data:esp}=await sb.rpc('labs_mon_espace');
+  const mes=(esp||[]).filter(e=>(e.plateformes||[]).includes(APP.k)&&['actif','converti'].includes(e.statut)&&e.jours_restants>=0);
+  if(mes.length){ESP=mes[0];}
+  else{
+    const{data:eq}=await sb.rpc('labs_est_equipe');EQUIPE=!!eq;
+    if(EQUIPE){const{data:t}=await sb.from('labs_tenants').select('*').gt('support_jusqua',new Date().toISOString());
+      const ok=(t||[]).filter(x=>(x.plateformes||[]).includes(APP.k));
+      if(ok.length){const c=ok.length===1?ok[0]:ok.find(x=>x.code===prompt('Espaces avec accès support ouvert :\n'+ok.map(x=>'• '+x.code+' — '+x.nom).join('\n')+'\n\nCode de l’espace :',ok[0].code))||ok[0];
+        ESP={tenant_id:c.id,code:c.code,nom:c.nom,plateformes:c.plateformes,date_debut:c.date_debut,date_fin:c.date_fin,jours_restants:Math.max(0,jours(auj(),c.date_fin)),statut:c.statut,role:'support'};}}
+  }
+  if(!ESP){$('#app').innerHTML=`<main class="wrap" style="padding:40px 20px"><div class="carte"><h2>Plateforme non disponible pour votre compte</h2><p class="note">Cette plateforme n’est pas activée pour votre espace, ou la période de test est terminée. <a href="../">Retour au portail</a></p></div></main>`;return;}
+  const{data:m}=await sb.from('labs_membres').select('user_id,nom').eq('tenant_id',ESP.tenant_id);MEMBRES=m||[];
+  if(!sessionStorage.getItem('ouv_'+APP.k)){sessionStorage.setItem('ouv_'+APP.k,'1');journal('ouverture');}
+  window.addEventListener('hashchange',route);route();
+}
+function journal(action){if(ESP?.role==='support')return;sb.from('labs_journal').insert({tenant_id:ESP.tenant_id,plateforme:APP.k,action}).then(()=>{});}
+
+// ── Habillage ──
+function cadre(contenu){
+  const nav=[{h:'#',l:'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
+  const actif=location.hash.replace('#','').split('/').slice(0,2).join('/')||'accueil';
+  $('#app').innerHTML=`<header class="top"><div class="wrap-l"><a class="logo" href="../" title="Retour au portail H TECH Labs"><svg width="30" height="20" viewBox="0 0 34 22" aria-hidden="true"><g fill="none" stroke="#0A2A66" stroke-width="3.2" stroke-linecap="round"><path d="M3 20a14 14 0 0128 0"/><path d="M9 20a8 8 0 0116 0"/><path d="M14.5 20a2.5 2.5 0 015 0"/></g></svg><div><b>${esc(APP.nom)}</b><span>${esc(ESP.nom)}${ESP.role==='support'?' — accès assistance':''}</span></div></a>
+    <div class="qui"><span class="reste" title="Jours restants de la période de test">${ESP.jours_restants} j</span><button class="btn s" onclick="exporter()">Exporter mes données</button><a class="btn s" href="../">Portail</a></div></div></header>
+    <div class="corps"><nav class="menu" aria-label="Navigation">${nav.map(n=>`<a href="${n.h}" class="${(n.v===actif||(n.v==='accueil'&&actif===''))?'on':''}">${ico(n.i)}<span>${esc(n.l)}</span></a>`).join('')}</nav><main id="vue">${contenu}</main></div>`;
+}
+async function route(){
+  const[v,a,b]=location.hash.replace('#','').split('/');
+  try{
+    if(!v){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await APP.accueil();APP.apresAccueil&&APP.apresAccueil();return;}
+    const vs=(APP.vues||[]).find(x=>x.k===v);if(vs){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await vs.rendu();vs.apres&&vs.apres();return;}
+    if(v==='liste'){cadre('');await vueListe(a);return;}
+    if(v==='fiche'){cadre('');await vueFiche(a,b);return;}
+    location.hash='';
+  }catch(e){console.error(e);$('#vue')&&($('#vue').innerHTML=`<div class="carte"><h2>Affichage impossible</h2><p class="note">${esc(e.message)}</p></div>`);}
+}
+
+// ── Données ──
+async function charger(k,filtres){
+  let q=sb.from(k).select('*').eq('tenant_id',ESP.tenant_id);
+  Object.entries(filtres||{}).forEach(([c,v])=>{q=q.eq(c,v);});
+  const e=ENT(k),[col,sens]=(e?.tri||'created_at desc').split(' ');
+  const{data,error}=await q.order(col,{ascending:sens==='asc'});if(error)throw new Error(error.message);
+  CACHE[k]=filtres?CACHE[k]:data;return data||[];
+}
+async function tous(k){if(!CACHE[k])await charger(k);return CACHE[k]||[];}
+function titreDe(k,r){const e=ENT(k);return r?(e.titre?e.titre(r):r[e.champs[0].k]):'';}
+async function libRef(k,id){if(!id)return'';const r=(await tous(k)).find(x=>x.id===id);return r?titreDe(k,r):'—';}
+async function enregistrer(k,id,obj){
+  const e=ENT(k);if(e.avantEnregistrer)await e.avantEnregistrer(obj,id);
+  let res;if(id){obj.updated_at=new Date().toISOString();res=await sb.from(k).update(obj).eq('id',id).select().single();}
+  else{obj.tenant_id=ESP.tenant_id;res=await sb.from(k).insert(obj).select().single();}
+  if(res.error)throw new Error(res.error.message);delete CACHE[k];journal(id?'modification_'+k:'creation_'+k);
+  if(e.apresEnregistrer)await e.apresEnregistrer(res.data,!id);return res.data;
+}
+async function supprimer(k,id){if(!confirm('Supprimer définitivement cet élément ?'))return false;
+  const{error}=await sb.from(k).delete().eq('id',id);if(error){toast('Suppression impossible : '+error.message);return false;}delete CACHE[k];journal('suppression_'+k);return true;}
+
+// ── Valeurs affichées ──
+async function valeur(c,r){
+  const v=r[c.k];
+  switch(c.t){
+    case 'money':return v==null?'':fcfa(v);
+    case 'pct':return v==null?'':`<span class="barre-pct"><i style="width:${Math.min(100,num(v))}%"></i></span> ${num(v)} %`;
+    case 'date':return dfr(v);
+    case 'bool':return v?'Oui':'Non';
+    case 'select':return v?`<span class="pastille" data-v="${esc(v)}">${esc(v)}</span>`:'';
+    case 'ref':return v?`<a href="#fiche/${c.ref}/${v}">${esc(await libRef(c.ref,v))}</a>`:'';
+    case 'membre':return esc(MEMBRES.find(m=>m.user_id===v)?.nom||'');
+    case 'file':return v?`<button class="lien" onclick="ouvrirFichier('${esc(v)}')">${esc(r[c.k+'_nom']||'Fichier')}</button>`:'';
+    case 'geo':return r[c.k+'_lat']!=null?`${num(r[c.k+'_lat']).toFixed(5)}, ${num(r[c.k+'_lng']).toFixed(5)}`:'';
+    case 'lignes':return (v||[]).length+' ligne(s)';
+    case 'textarea':return esc(v||'').replace(/\n/g,'<br>');
+    default:return esc(v??'');
+  }
+}
+
+// ── Liste ──
+let FILTRE={};
+async function vueListe(k){
+  const e=ENT(k);if(!e){location.hash='';return;}
+  const rows=await charger(k);const q=(FILTRE[k+'_q']||'').toLowerCase();
+  const cols=e.champs.filter(c=>c.liste);const fs=e.champs.filter(c=>c.filtre);
+  const vis=rows.filter(r=>(!q||JSON.stringify(r).toLowerCase().includes(q))&&fs.every(c=>!FILTRE[k+'_'+c.k]||r[c.k]===FILTRE[k+'_'+c.k]));
+  const lignes=await Promise.all(vis.map(async r=>`<tr tabindex="0" onclick="location.hash='#fiche/${k}/${r.id}'" onkeydown="if(event.key==='Enter')location.hash='#fiche/${k}/${r.id}'">${(await Promise.all(cols.map(async c=>`<td>${await valeur(c,r)}</td>`))).join('')}</tr>`));
+  $('#vue').innerHTML=`<div class="tete"><div><h1>${esc(e.nom)}</h1><p class="note">${vis.length} sur ${rows.length}</p></div><button class="btn p" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'')}</button></div>
+    <div class="outils"><input class="in" placeholder="Rechercher…" value="${esc(FILTRE[k+'_q']||'')}" oninput="FILTRE['${k}_q']=this.value;clearTimeout(window._fq);window._fq=setTimeout(()=>vueListe('${k}'),250)">
+    ${fs.map(c=>`<select class="in" onchange="FILTRE['${k}_${c.k}']=this.value;vueListe('${k}')"><option value="">${esc(c.l)} : tous</option>${c.opts.map(o=>`<option ${FILTRE[k+'_'+c.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`).join('')}</div>
+    <div class="carte tab"><table><thead><tr>${cols.map(c=>`<th>${esc(c.l)}</th>`).join('')}</tr></thead><tbody>${lignes.join('')||`<tr><td colspan="${cols.length}" class="vide">Aucun élément. <button class="lien" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'le premier')}</button></td></tr>`}</tbody></table></div>`;
+  if(e.apresListe)e.apresListe(vis);
+}
+
+// ── Fiche ──
+async function vueFiche(k,id){
+  const e=ENT(k);const{data:r,error}=await sb.from(k).select('*').eq('id',id).single();if(error||!r){$('#vue').innerHTML='<div class="carte">Élément introuvable.</div>';return;}
+  const champs=await Promise.all(e.champs.filter(c=>!c.cache).map(async c=>`<div class="champ ${c.t==='textarea'||c.large?'large':''}"><dt>${esc(c.l)}</dt><dd>${await valeur(c,r)||'<span class="note">—</span>'}</dd></div>`));
+  const enfants=APP.entites.filter(x=>x.champs.some(c=>c.t==='ref'&&c.ref===k&&c.parent));
+  const blocs=await Promise.all(enfants.map(async x=>{const c=x.champs.find(c=>c.ref===k&&c.parent);const L=(await sb.from(x.k).select('*').eq(c.k,id).order((x.tri||'created_at desc').split(' ')[0],{ascending:(x.tri||'').endsWith('asc')})).data||[];
+    const cols=x.champs.filter(y=>y.liste&&y.k!==c.k);
+    return `<section class="carte"><div class="tete s"><h2>${esc(x.nom)} <span class="note">(${L.length})</span></h2><button class="btn s" onclick="formulaire('${x.k}',null,{${c.k}:'${id}'})">Ajouter</button></div>
+      ${L.length?`<div class="tab"><table><thead><tr>${cols.map(y=>`<th>${esc(y.l)}</th>`).join('')}</tr></thead><tbody>${(await Promise.all(L.map(async z=>`<tr tabindex="0" onclick="location.hash='#fiche/${x.k}/${z.id}'">${(await Promise.all(cols.map(async y=>`<td>${await valeur(y,z)}</td>`))).join('')}</tr>`))).join('')}</tbody></table></div>`:'<p class="note">Aucun élément.</p>'}</section>`;}));
+  $('#vue').innerHTML=`<p class="fil"><a href="#liste/${k}">${esc(e.nom)}</a></p><div class="tete"><div><h1>${esc(titreDe(k,r))}</h1></div><div class="actions">${e.actions?e.actions(r):''}<button class="btn" onclick="formulaire('${k}','${id}')">Modifier</button><button class="btn" onclick="supprimer('${k}','${id}').then(ok=>ok&&(location.hash='#liste/${k}'))">Supprimer</button></div></div>
+    ${e.avantFiche?await e.avantFiche(r):''}<section class="carte"><dl class="champs">${champs.join('')}</dl></section>${e.apresFiche?await e.apresFiche(r):''}${blocs.join('')}`;
+  if(e.ouverture)e.ouverture(r);
+}
+
+// ── Formulaire ──
+let FORM=null;
+async function formulaire(k,id,defauts){
+  const e=ENT(k);let r=defauts||{};if(id){const{data}=await sb.from(k).select('*').eq('id',id).single();r=data||{};}
+  FORM={k,id,r};
+  const html=await Promise.all(e.champs.filter(c=>!c.auto).map(async c=>{
+    const v=r[c.k]??(id?'':(typeof c.def==='function'?c.def():c.def))??'',idc='f_'+c.k,lab=`<label class="f" for="${idc}">${esc(c.l)}${c.req?' *':''}</label>`;
+    let inp;
+    switch(c.t){
+      case 'textarea':inp=`<textarea class="in" id="${idc}" rows="4">${esc(v)}</textarea>`;break;
+      case 'select':inp=`<select class="in" id="${idc}"><option value=""></option>${c.opts.map(o=>`<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;break;
+      case 'ref':{const L=await tous(c.ref);inp=`<select class="in" id="${idc}"><option value=""></option>${L.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${esc(titreDe(c.ref,x))}</option>`).join('')}</select>`;break;}
+      case 'membre':inp=`<select class="in" id="${idc}"><option value=""></option>${MEMBRES.map(m=>`<option value="${m.user_id}" ${m.user_id===v?'selected':''}>${esc(m.nom)}</option>`).join('')}</select>`;break;
+      case 'bool':inp=`<label class="case"><input type="checkbox" id="${idc}" ${v?'checked':''}> Oui</label>`;break;
+      case 'date':inp=`<input class="in" id="${idc}" type="date" value="${esc(String(v).slice(0,10))}">`;break;
+      case 'number':case 'money':case 'pct':inp=`<input class="in" id="${idc}" type="number" step="any" ${c.t==='pct'?'min="0" max="100"':''} value="${esc(v)}">`;break;
+      case 'file':inp=`<input class="in" id="${idc}" type="file" ${c.accept?`accept="${c.accept}"`:''} ${c.capture?'capture="environment"':''}>${r[c.k]?`<p class="note">Fichier actuel : ${esc(r[c.k+'_nom']||'')} (laisser vide pour le conserver)</p>`:''}`;break;
+      case 'geo':inp=`<div class="geo"><input class="in" id="${idc}_lat" type="number" step="any" placeholder="Latitude" value="${esc(r[c.k+'_lat']??'')}"><input class="in" id="${idc}_lng" type="number" step="any" placeholder="Longitude" value="${esc(r[c.k+'_lng']??'')}"><button type="button" class="btn s" onclick="maPosition('${idc}')">Ma position</button></div>`;break;
+      case 'lignes':inp=editeurLignes(idc,v||[]);break;
+      default:inp=`<input class="in" id="${idc}" value="${esc(v)}">`;
+    }
+    return `<div class="${c.t==='textarea'||c.t==='lignes'||c.large?'large':''}">${lab}${inp}${c.aide?`<p class="note">${esc(c.aide)}</p>`:''}</div>`;}));
+  dialogue((id?'Modifier ':'Ajouter ')+(e.un||'un élément'),`<div class="form">${html.join('')}</div><div class="err" id="fErr"></div>`,`<button class="btn" onclick="fermer()">Annuler</button><button class="btn p" id="fGo" onclick="validerForm()">Enregistrer</button>`);
+}
+function editeurLignes(idc,L){
+  return `<div class="tab"><table class="lignes" id="${idc}"><thead><tr><th>Désignation</th><th style="width:90px">Qté</th><th style="width:140px">Prix unitaire HT</th><th style="width:36px"></th></tr></thead><tbody>${(L.length?L:[{}]).map(l=>ligneHTML(l)).join('')}</tbody></table></div><button type="button" class="btn s" onclick="document.querySelector('#${idc} tbody').insertAdjacentHTML('beforeend',ligneHTML({}))">Ajouter une ligne</button>`;
+}
+function ligneHTML(l){return `<tr><td><input class="in" data-k="designation" value="${esc(l.designation||'')}"></td><td><input class="in" data-k="qte" type="number" step="any" value="${esc(l.qte??1)}"></td><td><input class="in" data-k="pu" type="number" step="any" value="${esc(l.pu??'')}"></td><td><button type="button" class="btn s" aria-label="Retirer la ligne" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+function maPosition(idc){if(!navigator.geolocation){toast('Géolocalisation indisponible');return;}
+  navigator.geolocation.getCurrentPosition(p=>{$('#'+idc+'_lat').value=p.coords.latitude.toFixed(6);$('#'+idc+'_lng').value=p.coords.longitude.toFixed(6);toast('Position relevée');},()=>toast('Position refusée ou indisponible'),{enableHighAccuracy:true,timeout:15000});}
+async function validerForm(){
+  const{k,id}=FORM,e=ENT(k),obj={},b=$('#fGo');b.disabled=true;$('#fErr').textContent='';
+  try{
+    for(const c of e.champs.filter(c=>!c.auto)){
+      const el=$('#f_'+c.k);
+      if(c.t==='geo'){const la=$('#f_'+c.k+'_lat').value,ln=$('#f_'+c.k+'_lng').value;obj[c.k+'_lat']=la===''?null:num(la);obj[c.k+'_lng']=ln===''?null:num(ln);continue;}
+      if(c.t==='lignes'){obj[c.k]=[...document.querySelectorAll('#f_'+c.k+' tbody tr')].map(tr=>({designation:tr.querySelector('[data-k=designation]').value.trim(),qte:num(tr.querySelector('[data-k=qte]').value),pu:num(tr.querySelector('[data-k=pu]').value)})).filter(l=>l.designation);continue;}
+      if(c.t==='file'){const f=el.files?.[0];if(f){if(f.size>25*1024*1024)throw new Error('Fichier trop volumineux (25 Mo au plus)');
+        const chemin=`${ESP.tenant_id}/${k}/${crypto.randomUUID()}-${f.name.replace(/[^A-Za-z0-9._-]+/g,'_')}`;
+        const up=await sb.storage.from(BUCKET).upload(chemin,f,{contentType:f.type||'application/octet-stream'});if(up.error)throw new Error('Envoi du fichier : '+up.error.message);
+        obj[c.k]=chemin;obj[c.k+'_nom']=f.name;}continue;}
+      let v=c.t==='bool'?el.checked:el.value.trim();
+      if(['number','money','pct'].includes(c.t))v=v===''?null:num(v);
+      if(['date','ref','membre','select'].includes(c.t)&&v==='')v=null;
+      if(c.req&&(v===null||v===''))throw new Error('Champ requis : '+c.l);
+      obj[c.k]=v;
+    }
+    const r=await enregistrer(k,id,obj);fermer();toast('Enregistré');
+    if(!id&&!FORM.retour)location.hash=`#fiche/${k}/${r.id}`;else route();
+  }catch(err){$('#fErr').textContent=err.message;b.disabled=false;}
+}
+async function ouvrirFichier(chemin){const w=window.open('','_blank');const{data,error}=await sb.storage.from(BUCKET).createSignedUrl(chemin,600);
+  if(error||!data){w&&w.close();toast('Fichier indisponible');return;}if(w)w.location=data.signedUrl;else location.href=data.signedUrl;}
+async function urlFichier(chemin){const{data}=await sb.storage.from(BUCKET).createSignedUrl(chemin,600);return data?.signedUrl||'';}
+
+// ── Dialogue ──
+function dialogue(titre,corps,pied){let d=$('#dlg');if(!d){d=document.createElement('dialog');d.id='dlg';document.body.appendChild(d);}
+  d.innerHTML=`<div class="hd"><h2>${esc(titre)}</h2></div><div class="bd">${corps}</div><div class="ft">${pied}</div>`;if(!d.open)d.showModal();return d;}
+function fermer(){$('#dlg')?.close();}
+
+// ── Export de toutes les données de l'espace ──
+async function exporter(){
+  const out={espace:ESP.nom,plateforme:APP.nom,exporte_le:new Date().toISOString(),donnees:{}};
+  for(const e of APP.entites){const{data}=await sb.from(e.k).select('*').eq('tenant_id',ESP.tenant_id);out.donnees[e.k]=data||[];}
+  const b=new Blob([JSON.stringify(out,null,2)],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=`export-${APP.k}-${ESP.code}-${auj()}.json`;a.click();journal('export');toast('Export téléchargé');
+}
+// ── Petits composants communs ──
+const kpi=(l,v,s,c)=>`<div class="kpi ${c||''}"><span>${esc(l)}</span><b>${v}</b>${s?`<small>${s}</small>`:''}</div>`;
+function csvDe(rows,cols){const L=[cols.map(c=>c.l).join(';'),...rows.map(r=>cols.map(c=>String(r[c.k]??'').replace(/[;\n]/g,' ')).join(';'))];return L.join('\n');}
+
+// ══════════════════════════════════════════════════════════════════════
+// LOT 4b — Gestion commerciale (clients, catalogue, devis, factures, encaissements)
+// ══════════════════════════════════════════════════════════════════════
+const totaux=(L,tva)=>{const ht=(L||[]).reduce((a,l)=>a+num(l.qte)*num(l.pu),0),t=Math.round(ht*num(tva??18)/100);return{ht,tva:t,ttc:ht+t};};
+async function prochainNumero(k,prefixe){const{data}=await sb.from(k).select('numero').eq('tenant_id',ESP.tenant_id);const an=new Date().getFullYear();
+  const n=Math.max(0,...(data||[]).map(r=>{const m=/(\d+)$/.exec(r.numero||'');return r.numero&&r.numero.includes('-'+an+'-')&&m?parseInt(m[1]):0;}));return `${prefixe}-${an}-${String(n+1).padStart(4,'0')}`;}
+const APP={k:'pme',nom:'Gestion commerciale',
+ entites:[
+  {k:'pme_clients',nom:'Clients',un:'un client',i:'M12 12a4 4 0 100-8 4 4 0 000 8M4 21a8 8 0 0116 0',tri:'nom asc',titre:r=>r.nom,
+   champs:[{k:'nom',l:'Raison sociale',req:1,liste:1},{k:'contact',l:'Contact',liste:1},{k:'telephone',l:'Téléphone',liste:1},{k:'email',l:'E-mail'},{k:'adresse',l:'Adresse',large:1},{k:'ncc',l:'NCC'},{k:'rccm',l:'RCCM'}]},
+  {k:'pme_articles',nom:'Catalogue',un:'un article',i:'M4 7l8-4 8 4-8 4zM4 7v10l8 4 8-4V7',tri:'designation asc',titre:r=>r.designation,
+   champs:[{k:'designation',l:'Désignation',req:1,liste:1,large:1},{k:'reference',l:'Référence',liste:1},{k:'type',l:'Type',t:'select',opts:['Produit','Service'],liste:1,filtre:1,def:'Produit'},{k:'prix',l:'Prix unitaire HT',t:'money',liste:1},{k:'unite',l:'Unité',def:'unité'}]},
+  {k:'pme_devis',nom:'Devis',un:'un devis',i:'M6 3h8l4 4v14H6zM9 12h6M9 16h6',tri:'created_at desc',titre:r=>r.numero+' — '+(r.objet||''),
+   champs:[{k:'numero',l:'Numéro',auto:1,liste:1},{k:'client_id',l:'Client',t:'ref',ref:'pme_clients',parent:1,req:1,liste:1},{k:'objet',l:'Objet',req:1,liste:1,large:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'validite_jours',l:'Validité (jours)',t:'number',def:30},
+    {k:'tva',l:'TVA (%)',t:'number',def:18},{k:'lignes',l:'Lignes',t:'lignes'},{k:'total_ttc',l:'Total TTC',t:'money',auto:1,liste:1},{k:'statut',l:'Statut',t:'select',opts:['Brouillon','Envoyé','Accepté','Refusé'],liste:1,filtre:1,def:'Brouillon'},{k:'conditions',l:'Conditions',t:'textarea',def:'Acompte de 50 % à la commande, solde à la livraison.'}],
+   avantEnregistrer:async(o,id)=>{if(!id)o.numero=await prochainNumero('pme_devis','DEV');o.total_ttc=totaux(o.lignes,o.tva).ttc;},
+   actions:r=>`<button class="btn p" onclick="pdfPiece('pme_devis','${r.id}')">PDF</button>${r.statut==='Accepté'?`<button class="btn" onclick="facturerDevis('${r.id}')">Facturer</button>`:''}`,
+   avantFiche:async r=>tableauLignes(r)},
+  {k:'pme_factures',nom:'Factures',un:'une facture',i:'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6',tri:'created_at desc',titre:r=>r.numero+' — '+(r.objet||''),
+   champs:[{k:'numero',l:'Numéro',auto:1,liste:1},{k:'client_id',l:'Client',t:'ref',ref:'pme_clients',parent:1,req:1,liste:1},{k:'devis_id',l:'Devis d’origine',t:'ref',ref:'pme_devis'},{k:'objet',l:'Objet',req:1,liste:1,large:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},
+    {k:'echeance',l:'Échéance',t:'date',liste:1},{k:'tva',l:'TVA (%)',t:'number',def:18},{k:'lignes',l:'Lignes',t:'lignes'},{k:'total_ttc',l:'Total TTC',t:'money',auto:1,liste:1},{k:'statut',l:'Statut',t:'select',opts:['Émise','Partiellement payée','Payée','Annulée'],liste:1,filtre:1,def:'Émise'}],
+   avantEnregistrer:async(o,id)=>{if(!id)o.numero=await prochainNumero('pme_factures','FAC');o.total_ttc=totaux(o.lignes,o.tva).ttc;},
+   actions:r=>`<button class="btn p" onclick="pdfPiece('pme_factures','${r.id}')">PDF</button>`,
+   avantFiche:async r=>{const P=(await sb.from('pme_paiements').select('montant').eq('facture_id',r.id)).data||[],paye=P.reduce((a,p)=>a+num(p.montant),0);
+     return `<div class="kpis">${kpi('Total TTC',fcfa(r.total_ttc))}${kpi('Encaissé',fcfa(paye),'','ok')}${kpi('Reste à payer',fcfa(num(r.total_ttc)-paye),'',num(r.total_ttc)-paye>0&&r.echeance&&r.echeance<auj()?'alerte':'')}</div>`+await tableauLignes(r);}},
+  {k:'pme_paiements',nom:'Encaissements',un:'un encaissement',i:'M3 7h18v10H3zM7 12h.01M12 12a2 2 0 100-.01',tri:'date desc',titre:r=>fcfa(r.montant)+' le '+dfr(r.date),
+   champs:[{k:'facture_id',l:'Facture',t:'ref',ref:'pme_factures',parent:1,req:1,liste:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'montant',l:'Montant',t:'money',req:1,liste:1},{k:'mode',l:'Mode',t:'select',opts:['Virement','Espèces','Chèque','Mobile money'],liste:1},{k:'reference',l:'Référence'}],
+   apresEnregistrer:async p=>{const f=(await sb.from('pme_factures').select('total_ttc').eq('id',p.facture_id).single()).data,P=(await sb.from('pme_paiements').select('montant').eq('facture_id',p.facture_id)).data||[],paye=P.reduce((a,x)=>a+num(x.montant),0);
+     await sb.from('pme_factures').update({statut:paye>=num(f.total_ttc)?'Payée':'Partiellement payée'}).eq('id',p.facture_id);delete CACHE.pme_factures;}},
+  {k:'pme_parametres',nom:'Mon entreprise',un:'les informations de l’entreprise',i:'M4 21V5l8-3 8 3v16M9 9h1M14 9h1M9 13h1M14 13h1',titre:r=>r.raison_sociale,
+   champs:[{k:'raison_sociale',l:'Raison sociale',req:1,liste:1},{k:'forme',l:'Forme juridique'},{k:'rccm',l:'RCCM',liste:1},{k:'ncc',l:'NCC'},{k:'adresse',l:'Adresse',large:1},{k:'telephone',l:'Téléphone'},{k:'email',l:'E-mail'},{k:'banque',l:'Banque et RIB',large:1},{k:'logo',l:'Logo',t:'file',accept:'image/png,image/jpeg'}]}],
+ accueil:async()=>{
+  const[D,F,P]=await Promise.all([charger('pme_devis'),charger('pme_factures'),sb.from('pme_paiements').select('montant,date').eq('tenant_id',ESP.tenant_id).then(x=>x.data||[])]);
+  const ca=F.filter(f=>f.statut!=='Annulée').reduce((a,f)=>a+num(f.total_ttc),0),enc=P.reduce((a,p)=>a+num(p.montant),0);
+  const retard=F.filter(f=>!['Payée','Annulée'].includes(f.statut)&&f.echeance&&f.echeance<auj());
+  const params=(await tous('pme_parametres'))[0];
+  return `<div class="tete"><div><h1>Tableau de bord</h1></div><button class="btn p" onclick="formulaire('pme_devis')">Nouveau devis</button></div>
+   ${params?'':`<section class="carte" style="border-color:#F3C98B;background:#FEF3E2"><p style="margin:0">Renseignez d’abord <a href="#liste/pme_parametres">les informations de votre entreprise</a> : elles figurent en en-tête de vos devis et factures.</p></section>`}
+   <div class="kpis">${kpi('Chiffre d’affaires facturé',fcfa(ca))}${kpi('Encaissé',fcfa(enc),'','ok')}${kpi('Reste à encaisser',fcfa(ca-enc))}${kpi('Factures en retard',retard.length,'',retard.length?'alerte':'ok')}${kpi('Devis en attente',D.filter(d=>d.statut==='Envoyé').length)}</div>
+   <section class="carte"><h2>Factures en retard de paiement</h2>${retard.length?`<ul class="liste-simple" style="margin-top:8px">${(await Promise.all(retard.map(async f=>`<li><a href="#fiche/pme_factures/${f.id}">${esc(f.numero)} — ${esc(await libRef('pme_clients',f.client_id))}</a><span class="note">${fcfa(f.total_ttc)} · échue le ${dfr(f.echeance)}</span></li>`))).join('')}</ul>`:'<p class="note">Aucune facture en retard.</p>'}</section>`;}
+};
+async function tableauLignes(r){const t=totaux(r.lignes,r.tva);
+  return `<section class="carte tab"><table><thead><tr><th>Désignation</th><th>Qté</th><th>Prix unitaire HT</th><th>Total HT</th></tr></thead><tbody>${(r.lignes||[]).map(l=>`<tr><td>${esc(l.designation)}</td><td>${num(l.qte)}</td><td>${fcfa(l.pu)}</td><td>${fcfa(num(l.qte)*num(l.pu))}</td></tr>`).join('')||'<tr><td colspan="4" class="vide">Aucune ligne</td></tr>'}
+   <tr><td colspan="3" style="text-align:right">Total HT</td><td>${fcfa(t.ht)}</td></tr><tr><td colspan="3" style="text-align:right">TVA ${num(r.tva)} %</td><td>${fcfa(t.tva)}</td></tr><tr><td colspan="3" style="text-align:right"><b>Total TTC</b></td><td><b>${fcfa(t.ttc)}</b></td></tr></tbody></table></section>`;}
+async function facturerDevis(id){
+  const d=(await sb.from('pme_devis').select('*').eq('id',id).single()).data;if(!confirm('Créer la facture du devis '+d.numero+' ?'))return;
+  const e=new Date();e.setDate(e.getDate()+30);
+  const f=await enregistrer('pme_factures',null,{client_id:d.client_id,devis_id:d.id,objet:d.objet,date:auj(),echeance:e.toISOString().slice(0,10),tva:d.tva,lignes:d.lignes,statut:'Émise'});
+  toast('Facture '+f.numero+' créée');location.hash='#fiche/pme_factures/'+f.id;
+}
+async function pdfPiece(k,id){
+  const r=(await sb.from(k).select('*').eq('id',id).single()).data,c=(await sb.from('pme_clients').select('*').eq('id',r.client_id).single()).data||{},e=(await tous('pme_parametres'))[0]||{raison_sociale:ESP.nom};
+  const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'}),t=totaux(r.lignes,r.tva),fac=k==='pme_factures';
+  const P=s=>String(s??'').replace(/[\u2018\u2019]/g,"'").replace(/[\u202f\u00a0]/g,' ');
+  let logoOk=false;
+  if(e.logo){try{const u=await urlFichier(e.logo),b=await (await fetch(u)).blob(),d=await new Promise(res=>{const f=new FileReader();f.onload=()=>res(f.result);f.readAsDataURL(b);});doc.addImage(d,/png/i.test(e.logo)?'PNG':'JPEG',14,12,28,20);logoOk=true;}catch(x){}}
+  const x0=logoOk?46:14;doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(10,42,102);doc.text(P(e.raison_sociale),x0,18);
+  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(90,100,120);[e.forme,e.rccm?'RCCM '+e.rccm:'',e.ncc?'NCC '+e.ncc:''].filter(Boolean).join('  |  ')&&doc.text(P([e.forme,e.rccm?'RCCM '+e.rccm:'',e.ncc?'NCC '+e.ncc:''].filter(Boolean).join('  |  ')),x0,23);
+  e.adresse&&doc.text(P(e.adresse),x0,27);[e.telephone,e.email].filter(Boolean).length&&doc.text(P([e.telephone,e.email].filter(Boolean).join('  |  ')),x0,31);
+  doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(10,42,102);doc.text(fac?'FACTURE':'DEVIS',196,20,{align:'right'});
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(30,40,60);doc.text(P('N° '+r.numero),196,27,{align:'right'});doc.text(P('Date : '+dfr(r.date)),196,31.5,{align:'right'});
+  doc.text(P(fac?(r.echeance?'Échéance : '+dfr(r.echeance):''):'Validité : '+(r.validite_jours||30)+' jours'),196,36,{align:'right'});
+  doc.setFillColor(244,247,252);doc.roundedRect(14,44,95,26,2,2,'F');doc.setFontSize(8);doc.setTextColor(21,101,192);doc.setFont('helvetica','bold');doc.text(fac?'FACTURÉ À':'ADRESSÉ À',18,50);
+  doc.setFontSize(11);doc.setTextColor(10,42,102);doc.text(P(c.nom||''),18,56);doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(90,100,120);
+  doc.text(doc.splitTextToSize(P([c.adresse,c.telephone,c.ncc?'NCC '+c.ncc:''].filter(Boolean).join(' · ')),86),18,61);
+  doc.setFontSize(8);doc.setTextColor(21,101,192);doc.setFont('helvetica','bold');doc.text('OBJET',116,50);doc.setFontSize(10);doc.setTextColor(10,42,102);doc.text(doc.splitTextToSize(P(r.objet||''),80),116,56);
+  doc.autoTable({startY:78,head:[['Désignation','Qté','PU HT','Total HT']],body:(r.lignes||[]).map(l=>[P(l.designation),String(num(l.qte)),P(fcfa(l.pu)),P(fcfa(num(l.qte)*num(l.pu)))]),
+    theme:'grid',headStyles:{fillColor:[10,42,102],textColor:255},styles:{fontSize:9},columnStyles:{1:{halign:'center'},2:{halign:'right'},3:{halign:'right'}}});
+  let y=doc.lastAutoTable.finalY+6;[['Total HT',t.ht],['TVA '+num(r.tva)+' %',t.tva],['Total TTC',t.ttc]].forEach(([l,v],i)=>{doc.setFont('helvetica',i===2?'bold':'normal');doc.setFontSize(i===2?11:9.5);doc.setTextColor(10,42,102);doc.text(P(l),150,y,{align:'right'});doc.text(P(fcfa(v)),196,y,{align:'right'});y+=6;});
+  y+=4;doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(60,70,90);
+  if(!fac&&r.conditions){doc.text(doc.splitTextToSize(P('Conditions : '+r.conditions),182),14,y);y+=10;}
+  if(fac&&e.banque){doc.text(doc.splitTextToSize(P('Règlement par virement : '+e.banque),182),14,y);y+=10;}
+  if(!fac){doc.setDrawColor(213,224,240);doc.roundedRect(14,y+2,85,30,2,2,'S');doc.text(P('Bon pour accord du client — date, signature et cachet'),17,y+8);}
+  doc.setFontSize(7);doc.setTextColor(120,130,150);doc.text(P([e.raison_sociale,e.rccm?'RCCM '+e.rccm:'',e.adresse].filter(Boolean).join('  |  ')),105,289,{align:'center'});
+  doc.save(P(r.numero)+'.pdf');journal('pdf_'+(fac?'facture':'devis'));
+}
+
+boot();
+</script>
+</body>
+</html>

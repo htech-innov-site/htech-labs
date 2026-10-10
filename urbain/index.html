@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi des projets urbains — H TECH Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--navy:#0A2A66;--blue:#1565C0;--green:#3F8A1E;--green-l:#EDF6E8;--light:#F4F7FC;--line:#D5E0F0;--txt:#1E283C;--grey:#5E6B82;--amber:#B45309;--amber-l:#FEF3E2;--red:#B42318;--red-l:#FDECEC}
+*{box-sizing:border-box}html,body{margin:0}body{font-family:'Source Sans 3',system-ui,sans-serif;color:var(--txt);background:var(--light);font-size:16px;line-height:1.5}
+h1,h2,h3{font-family:Montserrat,system-ui,sans-serif;color:var(--navy);margin:0;line-height:1.25}h1{font-size:24px;font-weight:800}h2{font-size:17px;font-weight:700}
+a{color:var(--blue)}button,input,select,textarea{font:inherit}:focus-visible{outline:3px solid #9CC3F5;outline-offset:2px}
+.barre-top{height:5px;background:linear-gradient(90deg,var(--navy) 0 85%,var(--green) 85%)}
+header.top{background:#fff;border-bottom:1px solid var(--line)}.wrap-l{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 20px;min-height:62px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}.logo b{font-family:Montserrat;font-weight:800;color:var(--navy);font-size:16px}.logo span{display:block;font-size:13px;color:var(--grey)}
+.qui{display:flex;gap:8px;align-items:center}.reste{font-family:Montserrat;font-weight:800;color:var(--navy);background:var(--light);border-radius:16px;padding:3px 10px;font-size:14px}
+.corps{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 67px)}
+.menu{background:#fff;border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.menu a{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:8px;color:var(--txt);text-decoration:none;font-weight:600;font-size:15px}
+.menu a:hover{background:var(--light)}.menu a.on{background:var(--navy);color:#fff}
+main#vue{padding:24px;max-width:1180px;width:100%}main#vue>*+*{margin-top:18px}
+.carte{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px}.carte.tab{padding:0;overflow-x:auto}
+.tete{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}.tete.s{align-items:center;margin-bottom:10px}.actions{display:flex;gap:8px;flex-wrap:wrap}
+.note{color:var(--grey);font-size:14.5px;margin:2px 0 0}.fil{margin:0;font-size:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--navy);padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:15px;text-decoration:none}
+.btn:hover{border-color:var(--blue)}.btn.p{background:var(--navy);border-color:var(--navy);color:#fff}.btn.p:hover{background:var(--blue)}.btn.g{background:var(--green);border-color:var(--green);color:#fff}.btn.s{padding:5px 10px;font-size:14px}.btn[disabled]{opacity:.5}
+.lien{background:none;border:0;color:var(--blue);cursor:pointer;padding:0;text-decoration:underline}
+.outils{display:flex;gap:8px;flex-wrap:wrap}.outils .in{width:auto;min-width:200px;flex:1}.outils select.in{flex:0 1 220px}
+.in{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff}
+label.f{display:block;font-weight:600;font-size:14px;margin:0 0 4px;color:var(--navy)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}.form .large{grid-column:1/-1}.geo{display:flex;gap:6px}.case{display:flex;gap:8px;align-items:center}
+.err{color:var(--red);font-size:14.5px;min-height:20px;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:15px}th{text-align:left;color:var(--grey);font-weight:600;font-size:13.5px;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}tbody tr[tabindex]{cursor:pointer}tbody tr[tabindex]:hover{background:#F8FAFE}.vide{text-align:center;color:var(--grey);padding:28px}
+table.lignes td{padding:4px}table.lignes .in{padding:6px 8px}
+.champs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px 20px;margin:0}.champ dt{font-size:13.5px;color:var(--grey);font-weight:600}.champ dd{margin:2px 0 0}.champ.large{grid-column:1/-1}
+.pastille{display:inline-block;font-size:13px;font-weight:700;padding:2px 9px;border-radius:12px;background:var(--light);color:var(--navy);white-space:nowrap}
+.barre-pct{display:inline-block;width:70px;height:7px;border-radius:4px;background:#E3EAF6;vertical-align:middle;position:relative;overflow:hidden}.barre-pct i{position:absolute;inset:0 auto 0 0;background:var(--blue)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}.kpi span{display:block;font-size:14px;color:var(--grey);font-weight:600}.kpi b{display:block;font-family:Montserrat;font-size:24px;color:var(--navy)}.kpi small{color:var(--grey)}
+.kpi.alerte{border-color:#F3C98B;background:var(--amber-l)}.kpi.alerte b{color:var(--amber)}.kpi.ok b{color:var(--green)}
+dialog{border:0;border-radius:12px;padding:0;max-width:760px;width:calc(100% - 24px);box-shadow:0 20px 60px rgba(6,28,72,.25)}dialog::backdrop{background:rgba(6,28,72,.45)}
+dialog .hd{padding:16px 20px;border-bottom:1px solid var(--line)}dialog .bd{padding:16px 20px;max-height:70vh;overflow:auto}dialog .ft{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;z-index:99}
+.liste-simple{list-style:none;margin:0;padding:0}.liste-simple li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.liste-simple li:first-child{border-top:0}
+@media (max-width:860px){.corps{grid-template-columns:1fr}.menu{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.menu a span{white-space:nowrap}.form{grid-template-columns:1fr}main#vue{padding:16px}.qui .btn:not(.s){display:none}}
+@media print{header.top,.menu,.actions,.btn{display:none!important}.corps{display:block}body{background:#fff}.carte{border:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+</style>
+</head>
+<body>
+<div class="barre-top"></div>
+<div id="app" aria-live="polite"><p style="padding:24px;color:#5E6B82">Chargement…</p></div>
+<script>
+// ── Configuration : mêmes valeurs que le portail H TECH Labs (projet Supabase htech-labs) ──
+const SUPABASE_URL='https://lqmgmkbwrkggvlvjrufo.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxbWdta2J3cmtnZ3ZsdmpydWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NDMwMDcsImV4cCI6MjEwNzIxOTAwN30.Cvyviw8ZmQgs43ZrILTWj4mh81r_hYoR1hlamypLOVg';
+// ══════════════════════════════════════════════════════════════════════
+// H TECH LABS — Noyau commun des plateformes (connexion, espace, listes, fiches,
+// formulaires, fichiers, export, journal). Chaque plateforme définit APP = {…}.
+// ══════════════════════════════════════════════════════════════════════
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const BUCKET='labs-fichiers';
+let USER=null,ESP=null,EQUIPE=false,VUE={nom:'accueil'},CACHE={},MEMBRES=[];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>{const n=parseFloat(String(v??'').replace(/\s/g,'').replace(',','.'));return isNaN(n)?0:n;};
+const fcfa=v=>Math.round(num(v)).toLocaleString('fr-FR').replace(/\u202f|\u00a0/g,' ')+' FCFA';
+const dfr=d=>d?new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+const dlong=d=>d?new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'';
+const auj=()=>new Date().toISOString().slice(0,10);
+const jours=(a,b)=>Math.round((new Date(String(b).slice(0,10)+'T12:00:00')-new Date(String(a).slice(0,10)+'T12:00:00'))/864e5);
+function toast(m,ms=3500){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),ms);}
+const ICO={maison:'M3 11l9-7 9 7v9H5v-9',liste:'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01'};
+const ico=d=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+const ENT=k=>APP.entites.find(e=>e.k===k);
+
+// ── Démarrage : session, espace, droits ──
+async function boot(){
+  const{data}=await sb.auth.getSession();USER=data.session?.user||null;
+  if(!USER||USER.user_metadata?.mdp_provisoire){location.href='../';return;}
+  const{data:esp}=await sb.rpc('labs_mon_espace');
+  const mes=(esp||[]).filter(e=>(e.plateformes||[]).includes(APP.k)&&['actif','converti'].includes(e.statut)&&e.jours_restants>=0);
+  if(mes.length){ESP=mes[0];}
+  else{
+    const{data:eq}=await sb.rpc('labs_est_equipe');EQUIPE=!!eq;
+    if(EQUIPE){const{data:t}=await sb.from('labs_tenants').select('*').gt('support_jusqua',new Date().toISOString());
+      const ok=(t||[]).filter(x=>(x.plateformes||[]).includes(APP.k));
+      if(ok.length){const c=ok.length===1?ok[0]:ok.find(x=>x.code===prompt('Espaces avec accès support ouvert :\n'+ok.map(x=>'• '+x.code+' — '+x.nom).join('\n')+'\n\nCode de l’espace :',ok[0].code))||ok[0];
+        ESP={tenant_id:c.id,code:c.code,nom:c.nom,plateformes:c.plateformes,date_debut:c.date_debut,date_fin:c.date_fin,jours_restants:Math.max(0,jours(auj(),c.date_fin)),statut:c.statut,role:'support'};}}
+  }
+  if(!ESP){$('#app').innerHTML=`<main class="wrap" style="padding:40px 20px"><div class="carte"><h2>Plateforme non disponible pour votre compte</h2><p class="note">Cette plateforme n’est pas activée pour votre espace, ou la période de test est terminée. <a href="../">Retour au portail</a></p></div></main>`;return;}
+  const{data:m}=await sb.from('labs_membres').select('user_id,nom').eq('tenant_id',ESP.tenant_id);MEMBRES=m||[];
+  if(!sessionStorage.getItem('ouv_'+APP.k)){sessionStorage.setItem('ouv_'+APP.k,'1');journal('ouverture');}
+  window.addEventListener('hashchange',route);route();
+}
+function journal(action){if(ESP?.role==='support')return;sb.from('labs_journal').insert({tenant_id:ESP.tenant_id,plateforme:APP.k,action}).then(()=>{});}
+
+// ── Habillage ──
+function cadre(contenu){
+  const nav=[{h:'#',l:'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
+  const actif=location.hash.replace('#','').split('/').slice(0,2).join('/')||'accueil';
+  $('#app').innerHTML=`<header class="top"><div class="wrap-l"><a class="logo" href="../" title="Retour au portail H TECH Labs"><svg width="30" height="20" viewBox="0 0 34 22" aria-hidden="true"><g fill="none" stroke="#0A2A66" stroke-width="3.2" stroke-linecap="round"><path d="M3 20a14 14 0 0128 0"/><path d="M9 20a8 8 0 0116 0"/><path d="M14.5 20a2.5 2.5 0 015 0"/></g></svg><div><b>${esc(APP.nom)}</b><span>${esc(ESP.nom)}${ESP.role==='support'?' — accès assistance':''}</span></div></a>
+    <div class="qui"><span class="reste" title="Jours restants de la période de test">${ESP.jours_restants} j</span><button class="btn s" onclick="exporter()">Exporter mes données</button><a class="btn s" href="../">Portail</a></div></div></header>
+    <div class="corps"><nav class="menu" aria-label="Navigation">${nav.map(n=>`<a href="${n.h}" class="${(n.v===actif||(n.v==='accueil'&&actif===''))?'on':''}">${ico(n.i)}<span>${esc(n.l)}</span></a>`).join('')}</nav><main id="vue">${contenu}</main></div>`;
+}
+async function route(){
+  const[v,a,b]=location.hash.replace('#','').split('/');
+  try{
+    if(!v){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await APP.accueil();APP.apresAccueil&&APP.apresAccueil();return;}
+    const vs=(APP.vues||[]).find(x=>x.k===v);if(vs){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await vs.rendu();vs.apres&&vs.apres();return;}
+    if(v==='liste'){cadre('');await vueListe(a);return;}
+    if(v==='fiche'){cadre('');await vueFiche(a,b);return;}
+    location.hash='';
+  }catch(e){console.error(e);$('#vue')&&($('#vue').innerHTML=`<div class="carte"><h2>Affichage impossible</h2><p class="note">${esc(e.message)}</p></div>`);}
+}
+
+// ── Données ──
+async function charger(k,filtres){
+  let q=sb.from(k).select('*').eq('tenant_id',ESP.tenant_id);
+  Object.entries(filtres||{}).forEach(([c,v])=>{q=q.eq(c,v);});
+  const e=ENT(k),[col,sens]=(e?.tri||'created_at desc').split(' ');
+  const{data,error}=await q.order(col,{ascending:sens==='asc'});if(error)throw new Error(error.message);
+  CACHE[k]=filtres?CACHE[k]:data;return data||[];
+}
+async function tous(k){if(!CACHE[k])await charger(k);return CACHE[k]||[];}
+function titreDe(k,r){const e=ENT(k);return r?(e.titre?e.titre(r):r[e.champs[0].k]):'';}
+async function libRef(k,id){if(!id)return'';const r=(await tous(k)).find(x=>x.id===id);return r?titreDe(k,r):'—';}
+async function enregistrer(k,id,obj){
+  const e=ENT(k);if(e.avantEnregistrer)await e.avantEnregistrer(obj,id);
+  let res;if(id){obj.updated_at=new Date().toISOString();res=await sb.from(k).update(obj).eq('id',id).select().single();}
+  else{obj.tenant_id=ESP.tenant_id;res=await sb.from(k).insert(obj).select().single();}
+  if(res.error)throw new Error(res.error.message);delete CACHE[k];journal(id?'modification_'+k:'creation_'+k);
+  if(e.apresEnregistrer)await e.apresEnregistrer(res.data,!id);return res.data;
+}
+async function supprimer(k,id){if(!confirm('Supprimer définitivement cet élément ?'))return false;
+  const{error}=await sb.from(k).delete().eq('id',id);if(error){toast('Suppression impossible : '+error.message);return false;}delete CACHE[k];journal('suppression_'+k);return true;}
+
+// ── Valeurs affichées ──
+async function valeur(c,r){
+  const v=r[c.k];
+  switch(c.t){
+    case 'money':return v==null?'':fcfa(v);
+    case 'pct':return v==null?'':`<span class="barre-pct"><i style="width:${Math.min(100,num(v))}%"></i></span> ${num(v)} %`;
+    case 'date':return dfr(v);
+    case 'bool':return v?'Oui':'Non';
+    case 'select':return v?`<span class="pastille" data-v="${esc(v)}">${esc(v)}</span>`:'';
+    case 'ref':return v?`<a href="#fiche/${c.ref}/${v}">${esc(await libRef(c.ref,v))}</a>`:'';
+    case 'membre':return esc(MEMBRES.find(m=>m.user_id===v)?.nom||'');
+    case 'file':return v?`<button class="lien" onclick="ouvrirFichier('${esc(v)}')">${esc(r[c.k+'_nom']||'Fichier')}</button>`:'';
+    case 'geo':return r[c.k+'_lat']!=null?`${num(r[c.k+'_lat']).toFixed(5)}, ${num(r[c.k+'_lng']).toFixed(5)}`:'';
+    case 'lignes':return (v||[]).length+' ligne(s)';
+    case 'textarea':return esc(v||'').replace(/\n/g,'<br>');
+    default:return esc(v??'');
+  }
+}
+
+// ── Liste ──
+let FILTRE={};
+async function vueListe(k){
+  const e=ENT(k);if(!e){location.hash='';return;}
+  const rows=await charger(k);const q=(FILTRE[k+'_q']||'').toLowerCase();
+  const cols=e.champs.filter(c=>c.liste);const fs=e.champs.filter(c=>c.filtre);
+  const vis=rows.filter(r=>(!q||JSON.stringify(r).toLowerCase().includes(q))&&fs.every(c=>!FILTRE[k+'_'+c.k]||r[c.k]===FILTRE[k+'_'+c.k]));
+  const lignes=await Promise.all(vis.map(async r=>`<tr tabindex="0" onclick="location.hash='#fiche/${k}/${r.id}'" onkeydown="if(event.key==='Enter')location.hash='#fiche/${k}/${r.id}'">${(await Promise.all(cols.map(async c=>`<td>${await valeur(c,r)}</td>`))).join('')}</tr>`));
+  $('#vue').innerHTML=`<div class="tete"><div><h1>${esc(e.nom)}</h1><p class="note">${vis.length} sur ${rows.length}</p></div><button class="btn p" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'')}</button></div>
+    <div class="outils"><input class="in" placeholder="Rechercher…" value="${esc(FILTRE[k+'_q']||'')}" oninput="FILTRE['${k}_q']=this.value;clearTimeout(window._fq);window._fq=setTimeout(()=>vueListe('${k}'),250)">
+    ${fs.map(c=>`<select class="in" onchange="FILTRE['${k}_${c.k}']=this.value;vueListe('${k}')"><option value="">${esc(c.l)} : tous</option>${c.opts.map(o=>`<option ${FILTRE[k+'_'+c.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`).join('')}</div>
+    <div class="carte tab"><table><thead><tr>${cols.map(c=>`<th>${esc(c.l)}</th>`).join('')}</tr></thead><tbody>${lignes.join('')||`<tr><td colspan="${cols.length}" class="vide">Aucun élément. <button class="lien" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'le premier')}</button></td></tr>`}</tbody></table></div>`;
+  if(e.apresListe)e.apresListe(vis);
+}
+
+// ── Fiche ──
+async function vueFiche(k,id){
+  const e=ENT(k);const{data:r,error}=await sb.from(k).select('*').eq('id',id).single();if(error||!r){$('#vue').innerHTML='<div class="carte">Élément introuvable.</div>';return;}
+  const champs=await Promise.all(e.champs.filter(c=>!c.cache).map(async c=>`<div class="champ ${c.t==='textarea'||c.large?'large':''}"><dt>${esc(c.l)}</dt><dd>${await valeur(c,r)||'<span class="note">—</span>'}</dd></div>`));
+  const enfants=APP.entites.filter(x=>x.champs.some(c=>c.t==='ref'&&c.ref===k&&c.parent));
+  const blocs=await Promise.all(enfants.map(async x=>{const c=x.champs.find(c=>c.ref===k&&c.parent);const L=(await sb.from(x.k).select('*').eq(c.k,id).order((x.tri||'created_at desc').split(' ')[0],{ascending:(x.tri||'').endsWith('asc')})).data||[];
+    const cols=x.champs.filter(y=>y.liste&&y.k!==c.k);
+    return `<section class="carte"><div class="tete s"><h2>${esc(x.nom)} <span class="note">(${L.length})</span></h2><button class="btn s" onclick="formulaire('${x.k}',null,{${c.k}:'${id}'})">Ajouter</button></div>
+      ${L.length?`<div class="tab"><table><thead><tr>${cols.map(y=>`<th>${esc(y.l)}</th>`).join('')}</tr></thead><tbody>${(await Promise.all(L.map(async z=>`<tr tabindex="0" onclick="location.hash='#fiche/${x.k}/${z.id}'">${(await Promise.all(cols.map(async y=>`<td>${await valeur(y,z)}</td>`))).join('')}</tr>`))).join('')}</tbody></table></div>`:'<p class="note">Aucun élément.</p>'}</section>`;}));
+  $('#vue').innerHTML=`<p class="fil"><a href="#liste/${k}">${esc(e.nom)}</a></p><div class="tete"><div><h1>${esc(titreDe(k,r))}</h1></div><div class="actions">${e.actions?e.actions(r):''}<button class="btn" onclick="formulaire('${k}','${id}')">Modifier</button><button class="btn" onclick="supprimer('${k}','${id}').then(ok=>ok&&(location.hash='#liste/${k}'))">Supprimer</button></div></div>
+    ${e.avantFiche?await e.avantFiche(r):''}<section class="carte"><dl class="champs">${champs.join('')}</dl></section>${e.apresFiche?await e.apresFiche(r):''}${blocs.join('')}`;
+  if(e.ouverture)e.ouverture(r);
+}
+
+// ── Formulaire ──
+let FORM=null;
+async function formulaire(k,id,defauts){
+  const e=ENT(k);let r=defauts||{};if(id){const{data}=await sb.from(k).select('*').eq('id',id).single();r=data||{};}
+  FORM={k,id,r};
+  const html=await Promise.all(e.champs.filter(c=>!c.auto).map(async c=>{
+    const v=r[c.k]??(id?'':(typeof c.def==='function'?c.def():c.def))??'',idc='f_'+c.k,lab=`<label class="f" for="${idc}">${esc(c.l)}${c.req?' *':''}</label>`;
+    let inp;
+    switch(c.t){
+      case 'textarea':inp=`<textarea class="in" id="${idc}" rows="4">${esc(v)}</textarea>`;break;
+      case 'select':inp=`<select class="in" id="${idc}"><option value=""></option>${c.opts.map(o=>`<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;break;
+      case 'ref':{const L=await tous(c.ref);inp=`<select class="in" id="${idc}"><option value=""></option>${L.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${esc(titreDe(c.ref,x))}</option>`).join('')}</select>`;break;}
+      case 'membre':inp=`<select class="in" id="${idc}"><option value=""></option>${MEMBRES.map(m=>`<option value="${m.user_id}" ${m.user_id===v?'selected':''}>${esc(m.nom)}</option>`).join('')}</select>`;break;
+      case 'bool':inp=`<label class="case"><input type="checkbox" id="${idc}" ${v?'checked':''}> Oui</label>`;break;
+      case 'date':inp=`<input class="in" id="${idc}" type="date" value="${esc(String(v).slice(0,10))}">`;break;
+      case 'number':case 'money':case 'pct':inp=`<input class="in" id="${idc}" type="number" step="any" ${c.t==='pct'?'min="0" max="100"':''} value="${esc(v)}">`;break;
+      case 'file':inp=`<input class="in" id="${idc}" type="file" ${c.accept?`accept="${c.accept}"`:''} ${c.capture?'capture="environment"':''}>${r[c.k]?`<p class="note">Fichier actuel : ${esc(r[c.k+'_nom']||'')} (laisser vide pour le conserver)</p>`:''}`;break;
+      case 'geo':inp=`<div class="geo"><input class="in" id="${idc}_lat" type="number" step="any" placeholder="Latitude" value="${esc(r[c.k+'_lat']??'')}"><input class="in" id="${idc}_lng" type="number" step="any" placeholder="Longitude" value="${esc(r[c.k+'_lng']??'')}"><button type="button" class="btn s" onclick="maPosition('${idc}')">Ma position</button></div>`;break;
+      case 'lignes':inp=editeurLignes(idc,v||[]);break;
+      default:inp=`<input class="in" id="${idc}" value="${esc(v)}">`;
+    }
+    return `<div class="${c.t==='textarea'||c.t==='lignes'||c.large?'large':''}">${lab}${inp}${c.aide?`<p class="note">${esc(c.aide)}</p>`:''}</div>`;}));
+  dialogue((id?'Modifier ':'Ajouter ')+(e.un||'un élément'),`<div class="form">${html.join('')}</div><div class="err" id="fErr"></div>`,`<button class="btn" onclick="fermer()">Annuler</button><button class="btn p" id="fGo" onclick="validerForm()">Enregistrer</button>`);
+}
+function editeurLignes(idc,L){
+  return `<div class="tab"><table class="lignes" id="${idc}"><thead><tr><th>Désignation</th><th style="width:90px">Qté</th><th style="width:140px">Prix unitaire HT</th><th style="width:36px"></th></tr></thead><tbody>${(L.length?L:[{}]).map(l=>ligneHTML(l)).join('')}</tbody></table></div><button type="button" class="btn s" onclick="document.querySelector('#${idc} tbody').insertAdjacentHTML('beforeend',ligneHTML({}))">Ajouter une ligne</button>`;
+}
+function ligneHTML(l){return `<tr><td><input class="in" data-k="designation" value="${esc(l.designation||'')}"></td><td><input class="in" data-k="qte" type="number" step="any" value="${esc(l.qte??1)}"></td><td><input class="in" data-k="pu" type="number" step="any" value="${esc(l.pu??'')}"></td><td><button type="button" class="btn s" aria-label="Retirer la ligne" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+function maPosition(idc){if(!navigator.geolocation){toast('Géolocalisation indisponible');return;}
+  navigator.geolocation.getCurrentPosition(p=>{$('#'+idc+'_lat').value=p.coords.latitude.toFixed(6);$('#'+idc+'_lng').value=p.coords.longitude.toFixed(6);toast('Position relevée');},()=>toast('Position refusée ou indisponible'),{enableHighAccuracy:true,timeout:15000});}
+async function validerForm(){
+  const{k,id}=FORM,e=ENT(k),obj={},b=$('#fGo');b.disabled=true;$('#fErr').textContent='';
+  try{
+    for(const c of e.champs.filter(c=>!c.auto)){
+      const el=$('#f_'+c.k);
+      if(c.t==='geo'){const la=$('#f_'+c.k+'_lat').value,ln=$('#f_'+c.k+'_lng').value;obj[c.k+'_lat']=la===''?null:num(la);obj[c.k+'_lng']=ln===''?null:num(ln);continue;}
+      if(c.t==='lignes'){obj[c.k]=[...document.querySelectorAll('#f_'+c.k+' tbody tr')].map(tr=>({designation:tr.querySelector('[data-k=designation]').value.trim(),qte:num(tr.querySelector('[data-k=qte]').value),pu:num(tr.querySelector('[data-k=pu]').value)})).filter(l=>l.designation);continue;}
+      if(c.t==='file'){const f=el.files?.[0];if(f){if(f.size>25*1024*1024)throw new Error('Fichier trop volumineux (25 Mo au plus)');
+        const chemin=`${ESP.tenant_id}/${k}/${crypto.randomUUID()}-${f.name.replace(/[^A-Za-z0-9._-]+/g,'_')}`;
+        const up=await sb.storage.from(BUCKET).upload(chemin,f,{contentType:f.type||'application/octet-stream'});if(up.error)throw new Error('Envoi du fichier : '+up.error.message);
+        obj[c.k]=chemin;obj[c.k+'_nom']=f.name;}continue;}
+      let v=c.t==='bool'?el.checked:el.value.trim();
+      if(['number','money','pct'].includes(c.t))v=v===''?null:num(v);
+      if(['date','ref','membre','select'].includes(c.t)&&v==='')v=null;
+      if(c.req&&(v===null||v===''))throw new Error('Champ requis : '+c.l);
+      obj[c.k]=v;
+    }
+    const r=await enregistrer(k,id,obj);fermer();toast('Enregistré');
+    if(!id&&!FORM.retour)location.hash=`#fiche/${k}/${r.id}`;else route();
+  }catch(err){$('#fErr').textContent=err.message;b.disabled=false;}
+}
+async function ouvrirFichier(chemin){const w=window.open('','_blank');const{data,error}=await sb.storage.from(BUCKET).createSignedUrl(chemin,600);
+  if(error||!data){w&&w.close();toast('Fichier indisponible');return;}if(w)w.location=data.signedUrl;else location.href=data.signedUrl;}
+async function urlFichier(chemin){const{data}=await sb.storage.from(BUCKET).createSignedUrl(chemin,600);return data?.signedUrl||'';}
+
+// ── Dialogue ──
+function dialogue(titre,corps,pied){let d=$('#dlg');if(!d){d=document.createElement('dialog');d.id='dlg';document.body.appendChild(d);}
+  d.innerHTML=`<div class="hd"><h2>${esc(titre)}</h2></div><div class="bd">${corps}</div><div class="ft">${pied}</div>`;if(!d.open)d.showModal();return d;}
+function fermer(){$('#dlg')?.close();}
+
+// ── Export de toutes les données de l'espace ──
+async function exporter(){
+  const out={espace:ESP.nom,plateforme:APP.nom,exporte_le:new Date().toISOString(),donnees:{}};
+  for(const e of APP.entites){const{data}=await sb.from(e.k).select('*').eq('tenant_id',ESP.tenant_id);out.donnees[e.k]=data||[];}
+  const b=new Blob([JSON.stringify(out,null,2)],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=`export-${APP.k}-${ESP.code}-${auj()}.json`;a.click();journal('export');toast('Export téléchargé');
+}
+// ── Petits composants communs ──
+const kpi=(l,v,s,c)=>`<div class="kpi ${c||''}"><span>${esc(l)}</span><b>${v}</b>${s?`<small>${s}</small>`:''}</div>`;
+function csvDe(rows,cols){const L=[cols.map(c=>c.l).join(';'),...rows.map(r=>cols.map(c=>String(r[c.k]??'').replace(/[;\n]/g,' ')).join(';'))];return L.join('\n');}
+
+// ══════════════════════════════════════════════════════════════════════
+// LOT 2 — Suivi des projets urbains
+// ══════════════════════════════════════════════════════════════════════
+const URB_STATUTS=['Identification','Études','Passation des marchés','Travaux','Réceptionné','Suspendu'];
+const URB_COUL={'Identification':'#7A90A8','Études':'#0891B2','Passation des marchés':'#7C3AED','Travaux':'#1565C0','Réceptionné':'#3F8A1E','Suspendu':'#B42318'};
+const APP={k:'urbain',nom:'Suivi des projets urbains',
+ vues:[{k:'carte',l:'Carte des projets',i:'M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',rendu:async()=>`<div class="tete"><div><h1>Carte des projets</h1><p class="note">Cliquez sur un projet pour ouvrir sa fiche. Les projets sans coordonnées n’apparaissent pas.</p></div></div><div id="carte" class="carte" style="height:68vh;padding:0"></div><div id="legende" class="note"></div>`,apres:()=>dessinerCarte('carte')}],
+ entites:[
+  {k:'urb_projets',nom:'Projets',un:'un projet',i:'M4 20V9l8-5 8 5v11M9 20v-6h6v6',tri:'created_at desc',titre:r=>r.nom,
+   champs:[{k:'nom',l:'Nom du projet',req:1,liste:1,large:1},{k:'commune',l:'Commune',liste:1,filtre:0},{k:'quartier',l:'Quartier'},
+    {k:'secteur',l:'Secteur',t:'select',opts:['Voirie','Assainissement','Eau potable','Électricité et éclairage','Équipement public','Marché','École','Santé','Habitat','Espaces verts','Autre'],liste:1,filtre:1},
+    {k:'statut',l:'Phase',t:'select',opts:URB_STATUTS,liste:1,filtre:1,def:'Identification'},
+    {k:'maitre_ouvrage',l:'Maître d’ouvrage'},{k:'maitre_oeuvre',l:'Maître d’œuvre'},{k:'entreprise',l:'Entreprise titulaire'},{k:'financement',l:'Source de financement'},
+    {k:'budget',l:'Budget',t:'money',liste:1},{k:'date_debut',l:'Début',t:'date'},{k:'date_fin_prevue',l:'Fin prévue',t:'date',liste:1},
+    {k:'avancement',l:'Avancement physique',t:'pct',liste:1,def:0},{k:'position',l:'Localisation',t:'geo'},
+    {k:'description',l:'Description',t:'textarea'}],
+   actions:r=>`<button class="btn" onclick="rapportProjet('${r.id}')">Rapport imprimable</button>`,
+   avantFiche:async r=>{const dep=await sb.from('urb_depenses').select('montant,type').eq('projet_id',r.id);const paye=(dep.data||[]).filter(d=>d.type==='Paiement').reduce((a,d)=>a+num(d.montant),0);
+     const fin=r.budget?Math.round(100*paye/num(r.budget)):0,ret=r.date_fin_prevue&&r.statut!=='Réceptionné'&&r.date_fin_prevue<auj();
+     return `<div class="kpis">${kpi('Avancement physique',num(r.avancement)+' %')}${kpi('Avancement financier',fin+' %',fcfa(paye)+' payés')}${kpi('Budget',fcfa(r.budget))}${kpi('Échéance',r.date_fin_prevue?dfr(r.date_fin_prevue):'—',ret?'en retard de '+jours(r.date_fin_prevue,auj())+' jours':'',ret?'alerte':'')}</div>`;}},
+  {k:'urb_jalons',nom:'Jalons',un:'un jalon',cache:1,tri:'date_prevue asc',titre:r=>r.libelle,
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1},{k:'libelle',l:'Jalon',req:1,liste:1},{k:'date_prevue',l:'Date prévue',t:'date',liste:1},{k:'date_reelle',l:'Date réelle',t:'date',liste:1},{k:'statut',l:'Statut',t:'select',opts:['À venir','Atteint','En retard'],liste:1,def:'À venir'}]},
+  {k:'urb_depenses',nom:'Dépenses',un:'une dépense',cache:1,tri:'date asc',titre:r=>r.libelle,
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'libelle',l:'Libellé',req:1,liste:1},{k:'type',l:'Type',t:'select',opts:['Engagement','Paiement'],liste:1,def:'Paiement'},{k:'montant',l:'Montant',t:'money',req:1,liste:1},{k:'piece',l:'Pièce justificative',t:'file'}]},
+  {k:'urb_visites',nom:'Visites de chantier',un:'une visite',i:'M3 7h4l2-3h6l2 3h4v13H3zM12 17a4 4 0 100-8 4 4 0 000 8',tri:'date desc',titre:r=>'Visite du '+dfr(r.date),
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'auteur',l:'Visite effectuée par',liste:1},{k:'avancement_constate',l:'Avancement constaté',t:'pct',liste:1},
+    {k:'photo',l:'Photo',t:'file',accept:'image/*',capture:1},{k:'position',l:'Position de la photo',t:'geo'},{k:'constats',l:'Constats',t:'textarea'},{k:'recommandations',l:'Recommandations',t:'textarea'}],
+   apresEnregistrer:async(v)=>{if(v.avancement_constate!=null){await sb.from('urb_projets').update({avancement:v.avancement_constate,updated_at:new Date().toISOString()}).eq('id',v.projet_id);delete CACHE.urb_projets;}},
+   avantFiche:async r=>r.photo?`<section class="carte"><img alt="Photo de la visite" style="max-width:100%;max-height:420px;border-radius:8px" src="${await urlFichier(r.photo)}"><p class="note">${r.position_lat!=null?'Prise à '+num(r.position_lat).toFixed(5)+', '+num(r.position_lng).toFixed(5)+' — ':''}${dlong(r.date)}</p></section>`:''},
+  {k:'urb_risques',nom:'Risques et problèmes',un:'un risque',i:'M12 3l9 16H3zM12 10v4M12 17h.01',tri:'created_at desc',titre:r=>r.description,
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'description',l:'Description',req:1,liste:1,large:1},{k:'gravite',l:'Gravité',t:'select',opts:['Faible','Moyenne','Élevée'],liste:1,filtre:1},
+    {k:'responsable',l:'Responsable',liste:1},{k:'echeance',l:'Échéance',t:'date',liste:1},{k:'statut',l:'Statut',t:'select',opts:['Ouvert','En traitement','Clos'],liste:1,filtre:1,def:'Ouvert'},{k:'mesures',l:'Mesures prises',t:'textarea'}]}],
+ accueil:async()=>{
+  const P=await charger('urb_projets'),R=(await sb.from('urb_risques').select('gravite,statut').eq('tenant_id',ESP.tenant_id)).data||[];
+  const D=(await sb.from('urb_depenses').select('montant,type').eq('tenant_id',ESP.tenant_id)).data||[];
+  const budget=P.reduce((a,p)=>a+num(p.budget),0),paye=D.filter(d=>d.type==='Paiement').reduce((a,d)=>a+num(d.montant),0);
+  const retard=P.filter(p=>p.date_fin_prevue&&p.statut!=='Réceptionné'&&p.date_fin_prevue<auj());
+  const moy=P.length?Math.round(P.reduce((a,p)=>a+num(p.avancement),0)/P.length):0;
+  const parPhase=URB_STATUTS.map(s=>[s,P.filter(p=>p.statut===s).length]);
+  return `<div class="tete"><div><h1>Tableau de bord</h1><p class="note">${P.length} projet${P.length>1?'s':''} suivi${P.length>1?'s':''}</p></div><button class="btn p" onclick="formulaire('urb_projets')">Ajouter un projet</button></div>
+   <div class="kpis">${kpi('Budget total',fcfa(budget))}${kpi('Consommé',budget?Math.round(100*paye/budget)+' %':'—',fcfa(paye)+' payés')}${kpi('Avancement moyen',moy+' %')}${kpi('Projets en retard',retard.length,'',retard.length?'alerte':'ok')}${kpi('Risques élevés ouverts',R.filter(r=>r.gravite==='Élevée'&&r.statut!=='Clos').length,'',R.some(r=>r.gravite==='Élevée'&&r.statut!=='Clos')?'alerte':'')}</div>
+   <section class="carte"><h2>Projets par phase</h2><div style="margin-top:12px">${parPhase.map(([s,n])=>`<div style="display:grid;grid-template-columns:190px 1fr 40px;gap:10px;align-items:center;margin:6px 0"><span>${esc(s)}</span><span style="height:12px;border-radius:6px;background:#E3EAF6;position:relative;overflow:hidden"><i style="position:absolute;inset:0 auto 0 0;width:${P.length?100*n/P.length:0}%;background:${URB_COUL[s]}"></i></span><b>${n}</b></div>`).join('')}</div></section>
+   <section class="carte"><h2>Projets en retard</h2>${retard.length?`<ul class="liste-simple" style="margin-top:8px">${retard.map(p=>`<li><a href="#fiche/urb_projets/${p.id}">${esc(p.nom)}</a><span class="note">fin prévue le ${dfr(p.date_fin_prevue)} · ${num(p.avancement)} %</span></li>`).join('')}</ul>`:'<p class="note">Aucun projet en retard.</p>'}</section>
+   <div id="mini" class="carte" style="height:340px;padding:0"></div>`;},
+ apresAccueil:()=>dessinerCarte('mini')
+};
+// Carte (Leaflet + OpenStreetMap)
+async function dessinerCarte(id){
+  const el=document.getElementById(id);if(!el||!window.L)return;const P=(await tous('urb_projets')).filter(p=>p.position_lat!=null);
+  const m=L.map(el).setView(P.length?[num(P[0].position_lat),num(P[0].position_lng)]:[5.3364,-4.0267],P.length?12:11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(m);
+  const pts=P.map(p=>{const c=URB_COUL[p.statut]||'#0A2A66';return L.circleMarker([num(p.position_lat),num(p.position_lng)],{radius:9,color:'#fff',weight:2,fillColor:c,fillOpacity:.95}).addTo(m)
+    .bindPopup(`<b>${esc(p.nom)}</b><br>${esc(p.statut||'')} · ${num(p.avancement)} %<br><a href="#fiche/urb_projets/${p.id}">Ouvrir la fiche</a>`);});
+  if(pts.length>1)m.fitBounds(L.featureGroup(pts).getBounds().pad(.2));
+  const lg=document.getElementById('legende');if(lg)lg.innerHTML=URB_STATUTS.map(s=>`<span style="display:inline-flex;align-items:center;gap:6px;margin-right:14px"><i style="width:12px;height:12px;border-radius:6px;background:${URB_COUL[s]};display:inline-block"></i>${esc(s)}</span>`).join('');
+}
+// Rapport imprimable d'un projet
+async function rapportProjet(id){
+  const p=(await sb.from('urb_projets').select('*').eq('id',id).single()).data;
+  const[J,D,V,R]=await Promise.all(['urb_jalons','urb_depenses','urb_visites','urb_risques'].map(k=>sb.from(k).select('*').eq('projet_id',id).then(x=>x.data||[])));
+  const paye=D.filter(d=>d.type==='Paiement').reduce((a,d)=>a+num(d.montant),0);
+  const w=window.open('','_blank');if(!w){toast('Autorisez les fenêtres pour imprimer');return;}
+  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport — ${esc(p.nom)}</title><style>body{font-family:Arial,sans-serif;color:#1E283C;margin:28px;font-size:13px}h1{color:#0A2A66;font-size:20px;margin:0}h2{color:#0A2A66;font-size:14px;border-bottom:2px solid #1565C0;padding-bottom:3px;margin-top:22px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #D5E0F0;padding:5px 7px;text-align:left}th{background:#F4F7FC}.k{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.k div{border:1px solid #D5E0F0;padding:8px}.k b{display:block;font-size:16px;color:#0A2A66}.pied{margin-top:30px;color:#5E6B82;font-size:11px}</style></head><body>
+   <div style="border-top:5px solid #0A2A66;padding-top:10px"><h1>${esc(p.nom)}</h1><p>${esc([p.commune,p.quartier].filter(Boolean).join(', '))} · ${esc(p.secteur||'')} · phase : ${esc(p.statut||'')}</p></div>
+   <div class="k"><div>Avancement physique<b>${num(p.avancement)} %</b></div><div>Avancement financier<b>${p.budget?Math.round(100*paye/num(p.budget)):0} %</b></div><div>Budget<b>${fcfa(p.budget)}</b></div><div>Fin prévue<b>${dfr(p.date_fin_prevue)||'—'}</b></div></div>
+   <h2>Intervenants</h2><table><tr><th>Maître d’ouvrage</th><td>${esc(p.maitre_ouvrage||'')}</td><th>Maître d’œuvre</th><td>${esc(p.maitre_oeuvre||'')}</td></tr><tr><th>Entreprise</th><td>${esc(p.entreprise||'')}</td><th>Financement</th><td>${esc(p.financement||'')}</td></tr></table>
+   <h2>Jalons</h2><table><tr><th>Jalon</th><th>Prévu</th><th>Réel</th><th>Statut</th></tr>${J.map(j=>`<tr><td>${esc(j.libelle)}</td><td>${dfr(j.date_prevue)}</td><td>${dfr(j.date_reelle)}</td><td>${esc(j.statut||'')}</td></tr>`).join('')||'<tr><td colspan="4">—</td></tr>'}</table>
+   <h2>Dernières visites</h2><table><tr><th>Date</th><th>Par</th><th>Avancement</th><th>Constats</th></tr>${V.slice(-5).reverse().map(v=>`<tr><td>${dfr(v.date)}</td><td>${esc(v.auteur||'')}</td><td>${v.avancement_constate??''} %</td><td>${esc(v.constats||'')}</td></tr>`).join('')||'<tr><td colspan="4">—</td></tr>'}</table>
+   <h2>Risques et problèmes ouverts</h2><table><tr><th>Description</th><th>Gravité</th><th>Responsable</th><th>Échéance</th></tr>${R.filter(r=>r.statut!=='Clos').map(r=>`<tr><td>${esc(r.description)}</td><td>${esc(r.gravite||'')}</td><td>${esc(r.responsable||'')}</td><td>${dfr(r.echeance)}</td></tr>`).join('')||'<tr><td colspan="4">Aucun</td></tr>'}</table>
+   <p class="pied">Rapport généré le ${dlong(auj())} — ${esc(ESP.nom)} — H TECH Labs, H TECH INNOV</p><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();journal('rapport');
+}
+
+boot();
+</script>
+</body>
+</html>
