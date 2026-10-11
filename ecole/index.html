@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestion scolaire et universitaire — H TECH Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+
+<style>
+:root{--navy:#0A2A66;--blue:#1565C0;--green:#3F8A1E;--green-l:#EDF6E8;--light:#F4F7FC;--line:#D5E0F0;--txt:#1E283C;--grey:#5E6B82;--amber:#B45309;--amber-l:#FEF3E2;--red:#B42318;--red-l:#FDECEC}
+*{box-sizing:border-box}html,body{margin:0}body{font-family:'Source Sans 3',system-ui,sans-serif;color:var(--txt);background:var(--light);font-size:16px;line-height:1.5}
+h1,h2,h3{font-family:Montserrat,system-ui,sans-serif;color:var(--navy);margin:0;line-height:1.25}h1{font-size:24px;font-weight:800}h2{font-size:17px;font-weight:700}
+a{color:var(--blue)}button,input,select,textarea{font:inherit}:focus-visible{outline:3px solid #9CC3F5;outline-offset:2px}
+.barre-top{height:5px;background:linear-gradient(90deg,var(--navy) 0 85%,var(--green) 85%)}
+header.top{background:#fff;border-bottom:1px solid var(--line)}.wrap-l{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 20px;min-height:62px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}.logo b{font-family:Montserrat;font-weight:800;color:var(--navy);font-size:16px}.logo span{display:block;font-size:13px;color:var(--grey)}
+.qui{display:flex;gap:8px;align-items:center}.reste{font-family:Montserrat;font-weight:800;color:var(--navy);background:var(--light);border-radius:16px;padding:3px 10px;font-size:14px}
+.corps{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 67px)}
+.menu{background:#fff;border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.menu a{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:8px;color:var(--txt);text-decoration:none;font-weight:600;font-size:15px}
+.menu a:hover{background:var(--light)}.menu a.on{background:var(--navy);color:#fff}
+main#vue{padding:24px;max-width:1180px;width:100%}main#vue>*+*{margin-top:18px}
+.carte{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px}.carte.tab{padding:0;overflow-x:auto}
+.tete{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}.tete.s{align-items:center;margin-bottom:10px}.actions{display:flex;gap:8px;flex-wrap:wrap}
+.note{color:var(--grey);font-size:14.5px;margin:2px 0 0}.fil{margin:0;font-size:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--navy);padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:15px;text-decoration:none}
+.btn:hover{border-color:var(--blue)}.btn.p{background:var(--navy);border-color:var(--navy);color:#fff}.btn.p:hover{background:var(--blue)}.btn.g{background:var(--green);border-color:var(--green);color:#fff}.btn.s{padding:5px 10px;font-size:14px}.btn[disabled]{opacity:.5}
+.lien{background:none;border:0;color:var(--blue);cursor:pointer;padding:0;text-decoration:underline}
+.outils{display:flex;gap:8px;flex-wrap:wrap}.outils .in{width:auto;min-width:200px;flex:1}.outils select.in{flex:0 1 220px}
+.in{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff}
+label.f{display:block;font-weight:600;font-size:14px;margin:0 0 4px;color:var(--navy)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}.form .large{grid-column:1/-1}.geo{display:flex;gap:6px}.case{display:flex;gap:8px;align-items:center}
+.err{color:var(--red);font-size:14.5px;min-height:20px;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:15px}th{text-align:left;color:var(--grey);font-weight:600;font-size:13.5px;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}tbody tr[tabindex]{cursor:pointer}tbody tr[tabindex]:hover{background:#F8FAFE}.vide{text-align:center;color:var(--grey);padding:28px}
+table.lignes td{padding:4px}table.lignes .in{padding:6px 8px}
+.champs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px 20px;margin:0}.champ dt{font-size:13.5px;color:var(--grey);font-weight:600}.champ dd{margin:2px 0 0}.champ.large{grid-column:1/-1}
+.pastille{display:inline-block;font-size:13px;font-weight:700;padding:2px 9px;border-radius:12px;background:var(--light);color:var(--navy);white-space:nowrap}
+.barre-pct{display:inline-block;width:70px;height:7px;border-radius:4px;background:#E3EAF6;vertical-align:middle;position:relative;overflow:hidden}.barre-pct i{position:absolute;inset:0 auto 0 0;background:var(--blue)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}.kpi span{display:block;font-size:14px;color:var(--grey);font-weight:600}.kpi b{display:block;font-family:Montserrat;font-size:24px;color:var(--navy)}.kpi small{color:var(--grey)}
+.kpi.alerte{border-color:#F3C98B;background:var(--amber-l)}.kpi.alerte b{color:var(--amber)}.kpi.ok b{color:var(--green)}
+dialog{border:0;border-radius:12px;padding:0;max-width:760px;width:calc(100% - 24px);box-shadow:0 20px 60px rgba(6,28,72,.25)}dialog::backdrop{background:rgba(6,28,72,.45)}
+dialog .hd{padding:16px 20px;border-bottom:1px solid var(--line)}dialog .bd{padding:16px 20px;max-height:70vh;overflow:auto}dialog .ft{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;z-index:99}
+.liste-simple{list-style:none;margin:0;padding:0}.liste-simple li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.liste-simple li:first-child{border-top:0}
+@media (max-width:860px){.corps{grid-template-columns:1fr}.menu{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.menu a span{white-space:nowrap}.form{grid-template-columns:1fr}main#vue{padding:16px}.qui .btn:not(.s){display:none}}
+@media print{header.top,.menu,.actions,.btn{display:none!important}.corps{display:block}body{background:#fff}.carte{border:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+</style>
+</head>
+<body>
+<div class="barre-top"></div>
+<div id="app" aria-live="polite"><p style="padding:24px;color:#5E6B82">Chargement…</p></div>
+<script>
+// ── Configuration : mêmes valeurs que le portail H TECH Labs (projet Supabase htech-labs) ──
+const SUPABASE_URL='https://lqmgmkbwrkggvlvjrufo.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxbWdta2J3cmtnZ3ZsdmpydWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NDMwMDcsImV4cCI6MjEwNzIxOTAwN30.Cvyviw8ZmQgs43ZrILTWj4mh81r_hYoR1hlamypLOVg';
+// ══════════════════════════════════════════════════════════════════════
+// H TECH LABS — Noyau commun des plateformes (connexion, espace, listes, fiches,
+// formulaires, fichiers, export, journal). Chaque plateforme définit APP = {…}.
+// ══════════════════════════════════════════════════════════════════════
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const BUCKET='labs-fichiers';
+let USER=null,ESP=null,EQUIPE=false,VUE={nom:'accueil'},CACHE={},MEMBRES=[];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>{const n=parseFloat(String(v??'').replace(/\s/g,'').replace(',','.'));return isNaN(n)?0:n;};
+const fcfa=v=>Math.round(num(v)).toLocaleString('fr-FR').replace(/\u202f|\u00a0/g,' ')+' FCFA';
+const dfr=d=>d?new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+const dlong=d=>d?new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'';
+const auj=()=>new Date().toISOString().slice(0,10);
+const jours=(a,b)=>Math.round((new Date(String(b).slice(0,10)+'T12:00:00')-new Date(String(a).slice(0,10)+'T12:00:00'))/864e5);
+function toast(m,ms=3500){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),ms);}
+const ICO={maison:'M3 11l9-7 9 7v9H5v-9',liste:'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01'};
+const ico=d=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+const ENT=k=>APP.entites.find(e=>e.k===k);
+
+// ── Démarrage : session, espace, droits ──
+async function boot(){
+  const{data}=await sb.auth.getSession();USER=data.session?.user||null;
+  if(!USER||USER.user_metadata?.mdp_provisoire){location.href='../';return;}
+  const{data:esp}=await sb.rpc('labs_mon_espace');
+  const mes=(esp||[]).filter(e=>(e.plateformes||[]).includes(APP.k)&&['actif','converti'].includes(e.statut)&&e.jours_restants>=0);
+  if(mes.length){ESP=mes[0];}
+  else{
+    const{data:eq}=await sb.rpc('labs_est_equipe');EQUIPE=!!eq;
+    if(EQUIPE){const{data:t}=await sb.from('labs_tenants').select('*').gt('support_jusqua',new Date().toISOString());
+      const ok=(t||[]).filter(x=>(x.plateformes||[]).includes(APP.k));
+      if(ok.length){const c=ok.length===1?ok[0]:ok.find(x=>x.code===prompt('Espaces avec accès support ouvert :\n'+ok.map(x=>'• '+x.code+' — '+x.nom).join('\n')+'\n\nCode de l’espace :',ok[0].code))||ok[0];
+        ESP={tenant_id:c.id,code:c.code,nom:c.nom,plateformes:c.plateformes,date_debut:c.date_debut,date_fin:c.date_fin,jours_restants:Math.max(0,jours(auj(),c.date_fin)),statut:c.statut,role:'support'};}}
+  }
+  if(!ESP){$('#app').innerHTML=`<main class="wrap" style="padding:40px 20px"><div class="carte"><h2>Plateforme non disponible pour votre compte</h2><p class="note">Cette plateforme n’est pas activée pour votre espace, ou la période de test est terminée. <a href="../">Retour au portail</a></p></div></main>`;return;}
+  const{data:m}=await sb.from('labs_membres').select('user_id,nom').eq('tenant_id',ESP.tenant_id);MEMBRES=m||[];
+  if(APP.init)await APP.init();
+  if(!sessionStorage.getItem('ouv_'+APP.k)){sessionStorage.setItem('ouv_'+APP.k,'1');journal('ouverture');}
+  window.addEventListener('hashchange',route);route();
+}
+function journal(action){if(ESP?.role==='support')return;sb.from('labs_journal').insert({tenant_id:ESP.tenant_id,plateforme:APP.k,action}).then(()=>{});}
+
+// ── Habillage ──
+function cadre(contenu){
+  const nav=[{h:'#',l:APP.titreAccueil?APP.titreAccueil():'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).filter(v=>!APP.voirVue||APP.voirVue(v.k)).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache&&(!APP.voirEntite||APP.voirEntite(e.k))).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
+  const actif=location.hash.replace('#','').split('/').slice(0,2).join('/')||'accueil';
+  $('#app').innerHTML=`<header class="top"><div class="wrap-l"><a class="logo" href="../" title="Retour au portail H TECH Labs"><svg width="30" height="20" viewBox="0 0 34 22" aria-hidden="true"><g fill="none" stroke="#0A2A66" stroke-width="3.2" stroke-linecap="round"><path d="M3 20a14 14 0 0128 0"/><path d="M9 20a8 8 0 0116 0"/><path d="M14.5 20a2.5 2.5 0 015 0"/></g></svg><div><b>${esc(APP.nom)}</b><span>${esc(ESP.nom)}${ESP.role==='support'?' — accès assistance':''}</span></div></a>
+    <div class="qui"><span class="reste" title="Jours restants de la période de test">${ESP.jours_restants} j</span><button class="btn s" onclick="exporter()">Exporter mes données</button><a class="btn s" href="../">Portail</a></div></div></header>
+    <div class="corps"><nav class="menu" aria-label="Navigation">${nav.map(n=>`<a href="${n.h}" class="${(n.v===actif||(n.v==='accueil'&&actif===''))?'on':''}">${ico(n.i)}<span>${esc(n.l)}</span></a>`).join('')}</nav><main id="vue">${contenu}</main></div>`;
+}
+async function route(){
+  const[v,a,b]=location.hash.replace('#','').split('/');
+  try{
+    if(!v){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await APP.accueil();APP.apresAccueil&&APP.apresAccueil();return;}
+    const vs=(APP.vues||[]).find(x=>x.k===v&&(!APP.voirVue||APP.voirVue(x.k)));if(vs){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await vs.rendu();vs.apres&&vs.apres();return;}
+    if(v==='liste'){cadre('');await vueListe(a);return;}
+    if(v==='fiche'){cadre('');await vueFiche(a,b);return;}
+    location.hash='';
+  }catch(e){console.error(e);$('#vue')&&($('#vue').innerHTML=`<div class="carte"><h2>Affichage impossible</h2><p class="note">${esc(e.message)}</p></div>`);}
+}
+
+// ── Données ──
+async function charger(k,filtres){
+  let q=sb.from(k).select('*').eq('tenant_id',ESP.tenant_id);
+  Object.entries(filtres||{}).forEach(([c,v])=>{q=q.eq(c,v);});
+  const e=ENT(k),[col,sens]=(e?.tri||'created_at desc').split(' ');
+  const{data,error}=await q.order(col,{ascending:sens==='asc'});if(error)throw new Error(error.message);
+  CACHE[k]=filtres?CACHE[k]:data;return data||[];
+}
+async function tous(k){if(!CACHE[k])await charger(k);return CACHE[k]||[];}
+function titreDe(k,r){const e=ENT(k);return r?(e.titre?e.titre(r):r[e.champs[0].k]):'';}
+async function libRef(k,id){if(!id)return'';const r=(await tous(k)).find(x=>x.id===id);return r?titreDe(k,r):'—';}
+async function enregistrer(k,id,obj){
+  const e=ENT(k);if(e.avantEnregistrer)await e.avantEnregistrer(obj,id);
+  let res;if(id){obj.updated_at=new Date().toISOString();res=await sb.from(k).update(obj).eq('id',id).select().single();}
+  else{obj.tenant_id=ESP.tenant_id;res=await sb.from(k).insert(obj).select().single();}
+  if(res.error)throw new Error(res.error.message);delete CACHE[k];journal(id?'modification_'+k:'creation_'+k);
+  if(e.apresEnregistrer)await e.apresEnregistrer(res.data,!id);return res.data;
+}
+async function supprimer(k,id){if(!confirm('Supprimer définitivement cet élément ?'))return false;
+  const{error}=await sb.from(k).delete().eq('id',id);if(error){toast('Suppression impossible : '+error.message);return false;}delete CACHE[k];journal('suppression_'+k);return true;}
+
+// ── Valeurs affichées ──
+async function valeur(c,r){
+  const v=r[c.k];
+  switch(c.t){
+    case 'money':return v==null?'':fcfa(v);
+    case 'pct':return v==null?'':`<span class="barre-pct"><i style="width:${Math.min(100,num(v))}%"></i></span> ${num(v)} %`;
+    case 'date':return dfr(v);
+    case 'bool':return v?'Oui':'Non';
+    case 'select':return v?`<span class="pastille" data-v="${esc(v)}">${esc(v)}</span>`:'';
+    case 'ref':return v?`<a href="#fiche/${c.ref}/${v}">${esc(await libRef(c.ref,v))}</a>`:'';
+    case 'membre':return esc(MEMBRES.find(m=>m.user_id===v)?.nom||'');
+    case 'file':return v?`<button class="lien" onclick="ouvrirFichier('${esc(v)}')">${esc(r[c.k+'_nom']||'Fichier')}</button>`:'';
+    case 'geo':return r[c.k+'_lat']!=null?`${num(r[c.k+'_lat']).toFixed(5)}, ${num(r[c.k+'_lng']).toFixed(5)}`:'';
+    case 'lignes':return (v||[]).length+' ligne(s)';
+    case 'textarea':return esc(v||'').replace(/\n/g,'<br>');
+    default:return esc(v??'');
+  }
+}
+
+// ── Liste ──
+let FILTRE={};
+const peut=k=>!APP.peutEcrire||APP.peutEcrire(k);
+async function vueListe(k){
+  const e=ENT(k);if(!e){location.hash='';return;}
+  const rows=(await charger(k)).filter(r=>!e.filtreListe||e.filtreListe(r));const q=(FILTRE[k+'_q']||'').toLowerCase();
+  const cols=e.champs.filter(c=>c.liste);const fs=e.champs.filter(c=>c.filtre);
+  const vis=rows.filter(r=>(!q||JSON.stringify(r).toLowerCase().includes(q))&&fs.every(c=>!FILTRE[k+'_'+c.k]||r[c.k]===FILTRE[k+'_'+c.k]));
+  const lignes=await Promise.all(vis.map(async r=>`<tr tabindex="0" onclick="location.hash='#fiche/${k}/${r.id}'" onkeydown="if(event.key==='Enter')location.hash='#fiche/${k}/${r.id}'">${(await Promise.all(cols.map(async c=>`<td>${await valeur(c,r)}</td>`))).join('')}</tr>`));
+  $('#vue').innerHTML=`<div class="tete"><div><h1>${esc(e.nom)}</h1><p class="note">${vis.length} sur ${rows.length}</p></div>${peut(k)?`<button class="btn p" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'')}</button>`:''}</div>
+    <div class="outils"><input class="in" placeholder="Rechercher…" value="${esc(FILTRE[k+'_q']||'')}" oninput="FILTRE['${k}_q']=this.value;clearTimeout(window._fq);window._fq=setTimeout(()=>vueListe('${k}'),250)">
+    ${fs.map(c=>`<select class="in" onchange="FILTRE['${k}_${c.k}']=this.value;vueListe('${k}')"><option value="">${esc(c.l)} : tous</option>${c.opts.map(o=>`<option ${FILTRE[k+'_'+c.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`).join('')}</div>
+    <div class="carte tab"><table><thead><tr>${cols.map(c=>`<th>${esc(c.l)}</th>`).join('')}</tr></thead><tbody>${lignes.join('')||`<tr><td colspan="${cols.length}" class="vide">Aucun élément.${peut(k)?` <button class="lien" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'le premier')}</button>`:''}</td></tr>`}</tbody></table></div>`;
+  if(e.apresListe)e.apresListe(vis);
+}
+
+// ── Fiche ──
+async function vueFiche(k,id){
+  const e=ENT(k);const{data:r,error}=await sb.from(k).select('*').eq('id',id).single();if(error||!r){$('#vue').innerHTML='<div class="carte">Élément introuvable.</div>';return;}
+  const champs=await Promise.all(e.champs.filter(c=>!c.cache).map(async c=>`<div class="champ ${c.t==='textarea'||c.large?'large':''}"><dt>${esc(c.l)}</dt><dd>${await valeur(c,r)||'<span class="note">—</span>'}</dd></div>`));
+  const enfants=APP.entites.filter(x=>x.champs.some(c=>c.t==='ref'&&c.ref===k&&c.parent)&&(!APP.voirEnfant||APP.voirEnfant(x.k)));
+  const blocs=await Promise.all(enfants.map(async x=>{const c=x.champs.find(c=>c.ref===k&&c.parent);const L=(await sb.from(x.k).select('*').eq(c.k,id).order((x.tri||'created_at desc').split(' ')[0],{ascending:(x.tri||'').endsWith('asc')})).data||[];
+    const cols=x.champs.filter(y=>y.liste&&y.k!==c.k);
+    return `<section class="carte"><div class="tete s"><h2>${esc(x.nom)} <span class="note">(${L.length})</span></h2>${peut(x.k)?`<button class="btn s" onclick="formulaire('${x.k}',null,{${c.k}:'${id}'})">Ajouter</button>`:''}</div>
+      ${L.length?`<div class="tab"><table><thead><tr>${cols.map(y=>`<th>${esc(y.l)}</th>`).join('')}</tr></thead><tbody>${(await Promise.all(L.map(async z=>`<tr tabindex="0" onclick="location.hash='#fiche/${x.k}/${z.id}'">${(await Promise.all(cols.map(async y=>`<td>${await valeur(y,z)}</td>`))).join('')}</tr>`))).join('')}</tbody></table></div>`:'<p class="note">Aucun élément.</p>'}</section>`;}));
+  $('#vue').innerHTML=`<p class="fil"><a href="#liste/${k}">${esc(e.nom)}</a></p><div class="tete"><div><h1>${esc(titreDe(k,r))}</h1></div><div class="actions">${e.actions?e.actions(r):''}${peut(k)?`<button class="btn" onclick="formulaire('${k}','${id}')">Modifier</button><button class="btn" onclick="supprimer('${k}','${id}').then(ok=>ok&&(location.hash='#liste/${k}'))">Supprimer</button>`:''}</div></div>
+    ${e.avantFiche?await e.avantFiche(r):''}<section class="carte"><dl class="champs">${champs.join('')}</dl></section>${e.apresFiche?await e.apresFiche(r):''}${blocs.join('')}`;
+  if(e.ouverture)e.ouverture(r);
+}
+
+// ── Formulaire ──
+let FORM=null;
+async function formulaire(k,id,defauts){
+  const e=ENT(k);let r=defauts||{};if(id){const{data}=await sb.from(k).select('*').eq('id',id).single();r=data||{};}
+  FORM={k,id,r};
+  const html=await Promise.all(e.champs.filter(c=>!c.auto).map(async c=>{
+    const v=r[c.k]??(id?'':(typeof c.def==='function'?c.def():c.def))??'',idc='f_'+c.k,lab=`<label class="f" for="${idc}">${esc(c.l)}${c.req?' *':''}</label>`;
+    let inp;
+    switch(c.t){
+      case 'textarea':inp=`<textarea class="in" id="${idc}" rows="4">${esc(v)}</textarea>`;break;
+      case 'select':inp=`<select class="in" id="${idc}"><option value=""></option>${c.opts.map(o=>`<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;break;
+      case 'ref':{const L=await tous(c.ref);inp=`<select class="in" id="${idc}"><option value=""></option>${L.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${esc(titreDe(c.ref,x))}</option>`).join('')}</select>`;break;}
+      case 'membre':inp=`<select class="in" id="${idc}"><option value=""></option>${MEMBRES.map(m=>`<option value="${m.user_id}" ${m.user_id===v?'selected':''}>${esc(m.nom)}</option>`).join('')}</select>`;break;
+      case 'bool':inp=`<label class="case"><input type="checkbox" id="${idc}" ${v?'checked':''}> Oui</label>`;break;
+      case 'date':inp=`<input class="in" id="${idc}" type="date" value="${esc(String(v).slice(0,10))}">`;break;
+      case 'number':case 'money':case 'pct':inp=`<input class="in" id="${idc}" type="number" step="any" ${c.t==='pct'?'min="0" max="100"':''} value="${esc(v)}">`;break;
+      case 'file':inp=`<input class="in" id="${idc}" type="file" ${c.accept?`accept="${c.accept}"`:''} ${c.capture?'capture="environment"':''}>${r[c.k]?`<p class="note">Fichier actuel : ${esc(r[c.k+'_nom']||'')} (laisser vide pour le conserver)</p>`:''}`;break;
+      case 'geo':inp=`<div class="geo"><input class="in" id="${idc}_lat" type="number" step="any" placeholder="Latitude" value="${esc(r[c.k+'_lat']??'')}"><input class="in" id="${idc}_lng" type="number" step="any" placeholder="Longitude" value="${esc(r[c.k+'_lng']??'')}"><button type="button" class="btn s" onclick="maPosition('${idc}')">Ma position</button></div>`;break;
+      case 'lignes':inp=editeurLignes(idc,v||[]);break;
+      default:inp=`<input class="in" id="${idc}" value="${esc(v)}">`;
+    }
+    return `<div class="${c.t==='textarea'||c.t==='lignes'||c.large?'large':''}">${lab}${inp}${c.aide?`<p class="note">${esc(c.aide)}</p>`:''}</div>`;}));
+  dialogue((id?'Modifier ':'Ajouter ')+(e.un||'un élément'),`<div class="form">${html.join('')}</div><div class="err" id="fErr"></div>`,`<button class="btn" onclick="fermer()">Annuler</button><button class="btn p" id="fGo" onclick="validerForm()">Enregistrer</button>`);
+}
+function editeurLignes(idc,L){
+  return `<div class="tab"><table class="lignes" id="${idc}"><thead><tr><th>Désignation</th><th style="width:90px">Qté</th><th style="width:140px">Prix unitaire HT</th><th style="width:36px"></th></tr></thead><tbody>${(L.length?L:[{}]).map(l=>ligneHTML(l)).join('')}</tbody></table></div><button type="button" class="btn s" onclick="document.querySelector('#${idc} tbody').insertAdjacentHTML('beforeend',ligneHTML({}))">Ajouter une ligne</button>`;
+}
+function ligneHTML(l){return `<tr><td><input class="in" data-k="designation" value="${esc(l.designation||'')}"></td><td><input class="in" data-k="qte" type="number" step="any" value="${esc(l.qte??1)}"></td><td><input class="in" data-k="pu" type="number" step="any" value="${esc(l.pu??'')}"></td><td><button type="button" class="btn s" aria-label="Retirer la ligne" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+function maPosition(idc){if(!navigator.geolocation){toast('Géolocalisation indisponible');return;}
+  navigator.geolocation.getCurrentPosition(p=>{$('#'+idc+'_lat').value=p.coords.latitude.toFixed(6);$('#'+idc+'_lng').value=p.coords.longitude.toFixed(6);toast('Position relevée');},()=>toast('Position refusée ou indisponible'),{enableHighAccuracy:true,timeout:15000});}
+async function validerForm(){
+  const{k,id}=FORM,e=ENT(k),obj={},b=$('#fGo');b.disabled=true;$('#fErr').textContent='';
+  try{
+    for(const c of e.champs.filter(c=>!c.auto)){
+      const el=$('#f_'+c.k);
+      if(c.t==='geo'){const la=$('#f_'+c.k+'_lat').value,ln=$('#f_'+c.k+'_lng').value;obj[c.k+'_lat']=la===''?null:num(la);obj[c.k+'_lng']=ln===''?null:num(ln);continue;}
+      if(c.t==='lignes'){obj[c.k]=[...document.querySelectorAll('#f_'+c.k+' tbody tr')].map(tr=>({designation:tr.querySelector('[data-k=designation]').value.trim(),qte:num(tr.querySelector('[data-k=qte]').value),pu:num(tr.querySelector('[data-k=pu]').value)})).filter(l=>l.designation);continue;}
+      if(c.t==='file'){const f=el.files?.[0];if(f){if(f.size>25*1024*1024)throw new Error('Fichier trop volumineux (25 Mo au plus)');
+        const chemin=`${ESP.tenant_id}/${k}/${crypto.randomUUID()}-${f.name.replace(/[^A-Za-z0-9._-]+/g,'_')}`;
+        const up=await sb.storage.from(BUCKET).upload(chemin,f,{contentType:f.type||'application/octet-stream'});if(up.error)throw new Error('Envoi du fichier : '+up.error.message);
+        obj[c.k]=chemin;obj[c.k+'_nom']=f.name;}continue;}
+      let v=c.t==='bool'?el.checked:el.value.trim();
+      if(['number','money','pct'].includes(c.t))v=v===''?null:num(v);
+      if(['date','ref','membre','select'].includes(c.t)&&v==='')v=null;
+      if(c.req&&(v===null||v===''))throw new Error('Champ requis : '+c.l);
+      obj[c.k]=v;
+    }
+    const r=await enregistrer(k,id,obj);fermer();toast('Enregistré');
+    if(!id&&!FORM.retour)location.hash=`#fiche/${k}/${r.id}`;else route();
+  }catch(err){$('#fErr').textContent=err.message;b.disabled=false;}
+}
+async function ouvrirFichier(chemin){const w=window.open('','_blank');const{data,error}=await sb.storage.from(BUCKET).createSignedUrl(chemin,600);
+  if(error||!data){w&&w.close();toast('Fichier indisponible');return;}if(w)w.location=data.signedUrl;else location.href=data.signedUrl;}
+async function urlFichier(chemin){const{data}=await sb.storage.from(BUCKET).createSignedUrl(chemin,600);return data?.signedUrl||'';}
+
+// ── Dialogue ──
+function dialogue(titre,corps,pied){let d=$('#dlg');if(!d){d=document.createElement('dialog');d.id='dlg';document.body.appendChild(d);}
+  d.innerHTML=`<div class="hd"><h2>${esc(titre)}</h2></div><div class="bd">${corps}</div><div class="ft">${pied}</div>`;if(!d.open)d.showModal();return d;}
+function fermer(){$('#dlg')?.close();}
+
+// ── Export de toutes les données de l'espace ──
+async function exporter(){
+  const out={espace:ESP.nom,plateforme:APP.nom,exporte_le:new Date().toISOString(),donnees:{}};
+  for(const e of APP.entites){const{data}=await sb.from(e.k).select('*').eq('tenant_id',ESP.tenant_id);out.donnees[e.k]=data||[];}
+  const b=new Blob([JSON.stringify(out,null,2)],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=`export-${APP.k}-${ESP.code}-${auj()}.json`;a.click();journal('export');toast('Export téléchargé');
+}
+// ── Petits composants communs ──
+const kpi=(l,v,s,c)=>`<div class="kpi ${c||''}"><span>${esc(l)}</span><b>${v}</b>${s?`<small>${s}</small>`:''}</div>`;
+function csvDe(rows,cols){const L=[cols.map(c=>c.l).join(';'),...rows.map(r=>cols.map(c=>String(r[c.k]??'').replace(/[;\n]/g,' ')).join(';'))];return L.join('\n');}
+
+// ══════════════════════════════════════════════════════════════════════
+// LOT 6 — Gestion scolaire et universitaire
+// Mode « Scolaire » (primaire, collège, lycée) : trimestres, coefficients, moyennes, rangs, bulletins
+// Mode « Universitaire » (LMD) : semestres, UE/ECUE, crédits, compensation, rattrapage, relevés de notes
+// ══════════════════════════════════════════════════════════════════════
+// Sécurité par profil du lot 6 (ajoutée au SQL généré : remplace la règle générale des tables sco_)
+const SCO_REGLES={
+ sco_parametres:{s:'M',w:"D"},sco_profils:{s:"compte = auth.uid() or ST",w:"D"},sco_enseignants:{s:'M',w:'SC'},sco_classes:{s:'M',w:'SC'},sco_matieres:{s:'M',w:'SC'},sco_creneaux:{s:'M',w:'SC'},
+ sco_eleves:{s:"ST or id in (select public.sco_eleves_visibles())",w:'SC'},
+ sco_evaluations:{s:"ST or matiere_id in (select public.sco_mes_matieres()) or matiere_id in (select public.sco_matieres_familles())",w:"SC or matiere_id in (select public.sco_mes_matieres())"},
+ sco_notes:{s:"ST or evaluation_id in (select public.sco_mes_evaluations()) or eleve_id in (select public.sco_mes_enfants())",w:"SC or (evaluation_id in (select public.sco_mes_evaluations()) and eleve_id in (select public.sco_eleves_enseignant()))"},
+ sco_absences:{s:"ST or eleve_id in (select public.sco_eleves_visibles())",w:"SC or eleve_id in (select public.sco_eleves_enseignant())"},
+ sco_frais:{s:"ST or classe_id in (select public.sco_classes_familles())",w:'EC'},
+ sco_paiements:{s:"ST or eleve_id in (select public.sco_mes_enfants())",w:'EC'},
+ sco_annonces:{s:'M',w:"ST or public.sco_mon_enseignant(tenant_id) is not null"},
+ sco_bulletins:{s:"ST or eleve_id in (select public.sco_mes_enfants()) or eleve_id in (select public.sco_eleves_enseignant())",w:'SC'}};
+const SCO_ABR={M:'true',ST:"public.sco_est(tenant_id, '{Direction,Scolarité,Économat}')",SC:"public.sco_est(tenant_id, '{Direction,Scolarité}')",EC:"public.sco_est(tenant_id, '{Direction,Économat}')",D:"public.sco_est(tenant_id, '{Direction}')"};
+const scoExpr=x=>x.replace(/\b(ST|SC|EC|D|M)\b/g,m=>SCO_ABR[m]);
+const SCO_SQL=`
+-- ════════ Profils et droits (Direction, Scolarité, Économat, Enseignant, Parent, Élève) ════════
+-- Profil « personnel » d'un compte : l'administrateur de l'espace est Direction ; l'équipe H TECH INNOV
+-- pendant un accès support a les droits de Direction.
+create or replace function public.sco_est(p_tenant uuid, p_profils text[]) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.labs_acces(p_tenant) and (
+       (public.labs_est_equipe() and exists (select 1 from public.labs_tenants t where t.id = p_tenant and t.support_jusqua > now()))
+    or ('Direction' = any(p_profils) and exists (select 1 from public.labs_membres m where m.tenant_id = p_tenant and m.user_id = auth.uid() and m.role = 'admin'))
+    or exists (select 1 from public.sco_profils s where s.tenant_id = p_tenant and s.compte = auth.uid() and (s.profil = any(p_profils) or s.profil = 'Direction')));
+$$;
+create or replace function public.sco_mon_enseignant(p_tenant uuid) returns uuid
+language sql stable security definer set search_path = public as $$
+  select id from public.sco_enseignants where tenant_id = p_tenant and compte = auth.uid() limit 1;
+$$;
+create or replace function public.sco_mes_matieres() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select m.id from public.sco_matieres m join public.sco_enseignants e on e.id = m.enseignant_id where e.compte = auth.uid() and public.labs_acces(m.tenant_id);
+$$;
+create or replace function public.sco_mes_evaluations() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select v.id from public.sco_evaluations v where v.matiere_id in (select public.sco_mes_matieres());
+$$;
+create or replace function public.sco_classes_enseignant() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select m.classe_id from public.sco_matieres m where m.id in (select public.sco_mes_matieres())
+  union select c.id from public.sco_classes c join public.sco_enseignants e on e.id = c.titulaire_id where e.compte = auth.uid() and public.labs_acces(c.tenant_id);
+$$;
+create or replace function public.sco_eleves_enseignant() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select id from public.sco_eleves where classe_id in (select public.sco_classes_enseignant());
+$$;
+create or replace function public.sco_mes_enfants() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select id from public.sco_eleves where (compte_parent = auth.uid() or compte_eleve = auth.uid()) and public.labs_acces(tenant_id);
+$$;
+create or replace function public.sco_classes_familles() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select classe_id from public.sco_eleves where id in (select public.sco_mes_enfants());
+$$;
+create or replace function public.sco_matieres_familles() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select id from public.sco_matieres where classe_id in (select public.sco_classes_familles());
+$$;
+create or replace function public.sco_eleves_visibles() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select public.sco_eleves_enseignant() union select public.sco_mes_enfants();
+$$;
+-- Profil du compte connecté, lu par la plateforme pour adapter ses écrans
+create or replace function public.sco_mon_profil(p_tenant uuid) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'profil', case
+      when public.sco_est(p_tenant, '{Direction}') then 'Direction'
+      when public.sco_est(p_tenant, '{Scolarité}') then 'Scolarité'
+      when public.sco_est(p_tenant, '{Économat}') then 'Économat'
+      when public.sco_mon_enseignant(p_tenant) is not null then 'Enseignant'
+      when exists (select 1 from public.sco_eleves where tenant_id = p_tenant and compte_parent = auth.uid()) then 'Parent'
+      when exists (select 1 from public.sco_eleves where tenant_id = p_tenant and compte_eleve = auth.uid()) then 'Élève'
+      else null end,
+    'enseignant_id', public.sco_mon_enseignant(p_tenant),
+    'enfants', coalesce((select jsonb_agg(id) from public.sco_eleves where tenant_id = p_tenant and (compte_parent = auth.uid() or compte_eleve = auth.uid())), '[]'::jsonb));
+$$;
+grant execute on function public.sco_est(uuid, text[]), public.sco_mon_enseignant(uuid), public.sco_mes_matieres(), public.sco_mes_evaluations(),
+  public.sco_classes_enseignant(), public.sco_eleves_enseignant(), public.sco_mes_enfants(), public.sco_classes_familles(),
+  public.sco_matieres_familles(), public.sco_eleves_visibles(), public.sco_mon_profil(uuid) to authenticated;
+`+Object.entries(SCO_REGLES).map(([t,r])=>`
+drop policy if exists acces on public.${t};
+drop policy if exists lecture on public.${t};drop policy if exists ajout on public.${t};drop policy if exists modif on public.${t};drop policy if exists suppr on public.${t};
+create policy lecture on public.${t} for select to authenticated using (public.labs_acces(tenant_id) and (${scoExpr(r.s)}));
+create policy ajout on public.${t} for insert to authenticated with check (public.labs_acces(tenant_id) and (${scoExpr(r.w)}));
+create policy modif on public.${t} for update to authenticated using (public.labs_acces(tenant_id) and (${scoExpr(r.w)})) with check (public.labs_acces(tenant_id) and (${scoExpr(r.w)}));
+create policy suppr on public.${t} for delete to authenticated using (public.labs_acces(tenant_id) and (${scoExpr(r.w)}));`).join('');
+
+var PROFIL={profil:'Direction',enseignant_id:null,enfants:[]};
+const PERSONNEL=['Direction','Scolarité','Économat'];
+const estStaff=()=>PERSONNEL.includes(PROFIL.profil),estFamille=()=>['Parent','Élève'].includes(PROFIL.profil),estEns=()=>PROFIL.profil==='Enseignant';
+const SCO_ECRIRE={sco_parametres:['Direction'],sco_profils:['Direction'],sco_enseignants:['Direction','Scolarité'],sco_classes:['Direction','Scolarité'],sco_matieres:['Direction','Scolarité'],sco_creneaux:['Direction','Scolarité'],
+ sco_eleves:['Direction','Scolarité'],sco_bulletins:['Direction','Scolarité'],sco_evaluations:['Direction','Scolarité','Enseignant'],sco_notes:['Direction','Scolarité','Enseignant'],sco_absences:['Direction','Scolarité','Enseignant'],
+ sco_frais:['Direction','Économat'],sco_paiements:['Direction','Économat'],sco_annonces:['Direction','Scolarité','Économat','Enseignant']};
+const SCO_VUES={notes:['Direction','Scolarité','Enseignant'],resultats:['Direction','Scolarité','Enseignant'],appel:['Direction','Scolarité','Enseignant'],edt:['Direction','Scolarité','Économat','Enseignant','Parent','Élève'],
+ frais:['Direction','Scolarité','Économat'],acces:['Direction']};
+const SCO_ENT={Direction:'*',Scolarité:['sco_eleves','sco_classes','sco_matieres','sco_enseignants','sco_absences','sco_frais','sco_paiements','sco_annonces','sco_parametres'],
+ Économat:['sco_eleves','sco_classes','sco_frais','sco_paiements','sco_annonces'],Enseignant:['sco_eleves','sco_absences','sco_annonces'],Parent:['sco_annonces'],Élève:['sco_annonces']};
+async function mesClasses(){const C=await tous('sco_classes');if(!estEns()&&!estFamille())return C;
+  if(estFamille()){const E=await tous('sco_eleves');const ids=E.filter(e=>PROFIL.enfants.includes(e.id)).map(e=>e.classe_id);return C.filter(c=>ids.includes(c.id));}
+  const M=await tous('sco_matieres');return C.filter(c=>c.titulaire_id===PROFIL.enseignant_id||M.some(m=>m.classe_id===c.id&&m.enseignant_id===PROFIL.enseignant_id));}
+const SCO_PERIODES=['Trimestre 1','Trimestre 2','Trimestre 3','Semestre 1','Semestre 2'];
+const SCO_TYPES=['Interrogation','Devoir','Composition','Examen','TP','Projet','Rattrapage'];
+var SCO={};
+async function scoParams(){const p=(await tous('sco_parametres'))[0]||{};
+  return{nom:p.nom_etablissement||ESP.nom,mode:p.mode||'Scolaire',decoupage:p.decoupage||'Trimestres',annee:p.annee_scolaire||'2026-2027',seuil:num(p.seuil_reussite)||10,
+    adresse:p.adresse||'',telephone:p.telephone||'',email:p.email||'',directeur:p.directeur||'',titre_directeur:p.titre_directeur||(p.mode==='Universitaire'?'Le Doyen':'Le Directeur des études'),logo:p.logo||null,devise:p.devise||''};}
+const scoUniv=p=>p.mode==='Universitaire';
+const classeDe=async id=>id?((await sb.from('sco_classes').select('*').eq('id',id).maybeSingle()).data||null):null;
+const scoPeriodes=p=>scoUniv(p)||p.decoupage==='Semestres'?['Semestre 1','Semestre 2']:['Trimestre 1','Trimestre 2','Trimestre 3'];
+const nomEleve=e=>[String(e.nom||'').toUpperCase(),e.prenom].filter(Boolean).join(' ');
+const r2=v=>v==null?null:Math.round(v*100)/100;
+const f2=v=>v==null?'—':num(v).toFixed(2).replace('.',',');
+function mention(m){if(m==null)return'—';return m>=16?'Très bien':m>=14?'Bien':m>=12?'Assez bien':m>=10?'Passable':'Insuffisant';}
+function appreciation(m){if(m==null)return'';return m>=16?'Excellent travail':m>=14?'Très bon travail':m>=12?'Bon travail':m>=10?'Travail passable':m>=8?'Travail insuffisant':'Travail très insuffisant';}
+async function prochainNo(k,col,pref){const{data}=await sb.from(k).select(col).eq('tenant_id',ESP.tenant_id);const an=new Date().getFullYear();
+  const n=Math.max(0,...(data||[]).map(r=>{const m=new RegExp('^'+pref+'-'+an+'-(\\d+)$').exec(r[col]||'');return m?parseInt(m[1]):0;}));return `${pref}-${an}-${String(n+1).padStart(4,'0')}`;}
+
+// ── Calcul des résultats d'une classe sur une période ──
+async function scoCalcul(classeId,periode){
+  const p=await scoParams(),univ=scoUniv(p);
+  const M=(await sb.from('sco_matieres').select('*').eq('classe_id',classeId)).data||[];
+  const Ev=((await sb.from('sco_evaluations').select('*').eq('tenant_id',ESP.tenant_id).eq('periode',periode)).data||[]).filter(e=>M.some(m=>m.id===e.matiere_id));
+  const N=Ev.length?((await sb.from('sco_notes').select('*').in('evaluation_id',Ev.map(e=>e.id))).data||[]):[];
+  const E=((await sb.from('sco_eleves').select('*').eq('classe_id',classeId)).data||[]).filter(e=>!['Abandon','Transféré'].includes(e.statut)).sort((a,b)=>nomEleve(a).localeCompare(nomEleve(b)));
+  const moyMat=(eid,m)=>{const ev=Ev.filter(x=>x.matiere_id===m.id&&x.type!=='Rattrapage');let s=0,w=0;
+    ev.forEach(x=>{const n=N.find(y=>y.evaluation_id===x.id&&y.eleve_id===eid);if(n&&!n.absent&&n.note!=null){const pd=num(x.poids)||1;s+=num(n.note)/(num(x.note_sur)||20)*20*pd;w+=pd;}});
+    let moy=w?s/w:null;
+    if(univ){Ev.filter(x=>x.matiere_id===m.id&&x.type==='Rattrapage').forEach(x=>{const n=N.find(y=>y.evaluation_id===x.id&&y.eleve_id===eid);if(n&&!n.absent&&n.note!=null){const r=num(n.note)/(num(x.note_sur)||20)*20;if(moy==null||r>moy)moy=r;}});}
+    return r2(moy);};
+  const res=E.map(e=>{
+    const mats=M.map(m=>({m,moy:moyMat(e.id,m)}));
+    if(!univ){const v=mats.filter(x=>x.moy!=null);const sc=v.reduce((a,x)=>a+(num(x.m.coefficient)||1),0);
+      return{e,mats,moy:sc?r2(v.reduce((a,x)=>a+x.moy*(num(x.m.coefficient)||1),0)/sc):null};}
+    const ues={};mats.forEach(x=>{const k=x.m.ue||x.m.nom;(ues[k]=ues[k]||{nom:k,ecues:[],credits:0}).ecues.push(x);ues[k].credits+=num(x.m.credits)||0;});
+    const U=Object.values(ues).map(u=>{const v=u.ecues.filter(x=>x.moy!=null),sc=v.reduce((a,x)=>a+(num(x.m.coefficient)||1),0);const moy=sc?r2(v.reduce((a,x)=>a+x.moy*(num(x.m.coefficient)||1),0)/sc):null;return{...u,moy,valide:moy!=null&&moy>=p.seuil};});
+    const uv=U.filter(u=>u.moy!=null),cr=uv.reduce((a,u)=>a+u.credits,0),tot=U.reduce((a,u)=>a+u.credits,0);
+    const moy=cr?r2(uv.reduce((a,u)=>a+u.moy*u.credits,0)/cr):(uv.length?r2(uv.reduce((a,u)=>a+u.moy,0)/uv.length):null);
+    const valide=moy!=null&&moy>=p.seuil&&uv.length===U.length;
+    return{e,mats,ues:U,moy,valide,credits:valide?tot:U.filter(u=>u.valide).reduce((a,u)=>a+u.credits,0),creditsTotal:tot,resultat:moy==null?'—':valide?'Admis':'Ajourné'};});
+  const cl=res.filter(r=>r.moy!=null).sort((a,b)=>b.moy-a.moy);cl.forEach((r,i)=>{r.rang=i>0&&cl[i-1].moy===r.moy?cl[i-1].rang:i+1;});
+  const ms=cl.map(r=>r.moy);
+  return{p,univ,matieres:M,res,stats:{effectif:res.length,classes:cl.length,moyenne:ms.length?r2(ms.reduce((a,b)=>a+b,0)/ms.length):null,max:ms.length?Math.max(...ms):null,min:ms.length?Math.min(...ms):null,reussite:ms.length?Math.round(100*ms.filter(x=>x>=p.seuil).length/ms.length):null}};
+}
+
+// ── Impression (bulletins, relevés, reçus, certificats) ──
+async function enteteEtab(p){const logo=p.logo?await urlFichier(p.logo):'';
+  return `<div class="ent">${logo?`<img src="${logo}" alt="">`:''}<div><b>${esc(p.nom)}</b><br>${esc(p.adresse)}${p.telephone?' · '+esc(p.telephone):''}${p.email?' · '+esc(p.email):''}${p.devise?`<br><i>${esc(p.devise)}</i>`:''}</div><div class="an">Année ${esc(p.annee)}</div></div>`;}
+function imprimer(titre,corps){const w=window.open('','_blank');if(!w){toast('Autorisez les fenêtres pour imprimer');return;}
+  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(titre)}</title><style>
+   body{font-family:Arial,sans-serif;color:#1E283C;font-size:12px;margin:0}.page{padding:22px 26px;page-break-after:always}.page:last-child{page-break-after:auto}
+   .ent{display:flex;gap:12px;align-items:center;border-bottom:3px solid #0A2A66;padding-bottom:8px}.ent img{height:54px}.ent b{font-size:15px;color:#0A2A66}.ent .an{margin-left:auto;font-weight:bold;color:#0A2A66}
+   h1{font-size:17px;color:#0A2A66;text-align:center;margin:14px 0 8px;letter-spacing:.5px}table{width:100%;border-collapse:collapse;margin-top:8px}td,th{border:1px solid #B9C7DD;padding:4px 6px}th{background:#EEF3FA;text-align:left}
+   .n{text-align:right}.c{text-align:center}.id{display:grid;grid-template-columns:1fr 1fr;gap:2px 20px;margin-top:6px}.bilan{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}.bilan div{border:1px solid #B9C7DD;padding:6px}.bilan b{display:block;font-size:14px;color:#0A2A66}
+   .sig{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:22px}.sig div{border-top:1px solid #8796B0;padding-top:4px;height:60px}.ue td{background:#F6F8FC;font-weight:bold}.ok{color:#2E7D32;font-weight:bold}.ko{color:#B42318;font-weight:bold}
+   @page{size:A4;margin:10mm}</style></head><body>${corps}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();}
+function blocBulletin(C,r,periode,entete){
+  const p=C.p,e=r.e;
+  const ident=`<div class="id"><span><b>${esc(nomEleve(e))}</b></span><span>Matricule : ${esc(e.matricule||'')}</span><span>Né(e) le ${dfr(e.date_naissance)}${e.lieu_naissance?' à '+esc(e.lieu_naissance):''}</span><span>Classe : ${esc(C.classe?.nom||'')} · Effectif : ${C.stats.effectif}</span></div>`;
+  if(!C.univ){
+    const L=r.mats.map(x=>`<tr><td>${esc(x.m.nom)}</td><td class="c">${num(x.m.coefficient)||1}</td><td class="n">${f2(x.moy)}</td><td class="n">${x.moy==null?'—':f2(x.moy*(num(x.m.coefficient)||1))}</td><td>${esc(x.m.enseignant_nom||'')}</td><td>${esc(appreciation(x.moy))}</td></tr>`).join('');
+    const sc=r.mats.filter(x=>x.moy!=null).reduce((a,x)=>a+(num(x.m.coefficient)||1),0),tot=r.mats.filter(x=>x.moy!=null).reduce((a,x)=>a+x.moy*(num(x.m.coefficient)||1),0);
+    return `<div class="page">${entete}<h1>BULLETIN DE NOTES — ${esc(periode.toUpperCase())}</h1>${ident}
+     <table><tr><th>Matière</th><th class="c">Coef.</th><th class="n">Moyenne /20</th><th class="n">Moy. × coef.</th><th>Professeur</th><th>Appréciation</th></tr>${L}
+     <tr><th>Totaux</th><th class="c">${sc}</th><th></th><th class="n">${f2(tot)}</th><th colspan="2"></th></tr></table>
+     <div class="bilan"><div>Moyenne générale<b>${f2(r.moy)} / 20</b></div><div>Rang<b>${r.rang?r.rang+(r.rang===1?'er':'e')+' / '+C.stats.classes:'—'}</b></div><div>Moyenne de la classe<b>${f2(C.stats.moyenne)}</b></div><div>Plus forte · plus faible<b>${f2(C.stats.max)} · ${f2(C.stats.min)}</b></div></div>
+     <p style="margin-top:10px"><b>Mention :</b> ${esc(mention(r.moy))} &nbsp; · &nbsp; <b>Absences non justifiées :</b> ${r.absences??0} &nbsp; · &nbsp; <b>Observation du conseil :</b> ………………………………………</p>
+     <div class="sig"><div>Le professeur principal</div><div>${esc(p.titre_directeur)}${p.directeur?'<br>'+esc(p.directeur):''}</div><div>Les parents</div></div></div>`;}
+  const L=r.ues.map(u=>`<tr class="ue"><td>${esc(u.nom)}</td><td class="c">${u.credits}</td><td class="n">${f2(u.moy)}</td><td class="c ${u.valide?'ok':'ko'}">${u.moy==null?'—':u.valide?'Validée':'Non validée'}</td></tr>`+
+    u.ecues.map(x=>`<tr><td style="padding-left:18px">${esc(x.m.code?x.m.code+' — ':'')}${esc(x.m.nom)}</td><td class="c">${num(x.m.credits)||''}</td><td class="n">${f2(x.moy)}</td><td></td></tr>`).join('')).join('');
+  return `<div class="page">${entete}<h1>RELEVÉ DE NOTES — ${esc(periode.toUpperCase())}</h1>${ident}
+   <table><tr><th>Unité d’enseignement / élément constitutif</th><th class="c">Crédits</th><th class="n">Moyenne /20</th><th class="c">Validation</th></tr>${L}</table>
+   <div class="bilan"><div>Moyenne du semestre<b>${f2(r.moy)} / 20</b></div><div>Crédits acquis<b>${r.credits} / ${r.creditsTotal}</b></div><div>Résultat<b class="${r.valide?'ok':'ko'}">${esc(r.resultat)}</b></div><div>Mention<b>${esc(r.valide?mention(r.moy):'—')}</b></div></div>
+   <p style="margin-top:10px">Validation par compensation entre unités d’enseignement lorsque la moyenne du semestre atteint ${p.seuil}/20.</p>
+   <div class="sig"><div>Le responsable de filière</div><div>${esc(p.titre_directeur)}${p.directeur?'<br>'+esc(p.directeur):''}</div><div>Cachet de l’établissement</div></div></div>`;
+}
+async function imprimerBulletins(classeId,periode,eleveId){
+  const C=await scoCalcul(classeId,periode);C.classe=await classeDe(classeId);
+  const A=(await sb.from('sco_absences').select('eleve_id,type,justifiee').eq('tenant_id',ESP.tenant_id)).data||[];
+  C.res.forEach(r=>r.absences=A.filter(a=>a.eleve_id===r.e.id&&a.type==='Absence'&&!a.justifiee).length);
+  const ent=await enteteEtab(C.p),L=C.res.filter(r=>!eleveId||r.e.id===eleveId);
+  if(!L.length){toast('Aucun élève dans cette classe');return;}
+  imprimer((C.univ?'Relevés':'Bulletins')+' — '+periode,L.map(r=>blocBulletin(C,r,periode,ent)).join(''));journal(C.univ?'releves':'bulletins');
+}
+async function imprimerPV(classeId,periode){
+  const C=await scoCalcul(classeId,periode),cl=await classeDe(classeId),ent=await enteteEtab(C.p);
+  const L=[...C.res].sort((a,b)=>(a.rang||999)-(b.rang||999)).map(r=>`<tr><td class="c">${r.rang||'—'}</td><td>${esc(nomEleve(r.e))}</td><td>${esc(r.e.matricule||'')}</td><td class="n">${f2(r.moy)}</td>${C.univ?`<td class="c">${r.credits} / ${r.creditsTotal}</td><td class="c ${r.valide?'ok':'ko'}">${esc(r.resultat)}</td>`:`<td>${esc(mention(r.moy))}</td><td></td>`}</tr>`).join('');
+  imprimer('Procès-verbal',`<div class="page">${ent}<h1>${C.univ?'PROCÈS-VERBAL DE DÉLIBÉRATION':'CONSEIL DE CLASSE'} — ${esc(cl?.nom||'')} — ${esc(periode.toUpperCase())}</h1>
+   <div class="bilan"><div>Effectif<b>${C.stats.effectif}</b></div><div>Moyenne de la classe<b>${f2(C.stats.moyenne)}</b></div><div>${C.univ?'Taux d’admission':'Taux de réussite'}<b>${C.stats.reussite??'—'} %</b></div><div>Extrêmes<b>${f2(C.stats.max)} · ${f2(C.stats.min)}</b></div></div>
+   <table><tr><th class="c">Rang</th><th>Nom et prénoms</th><th>Matricule</th><th class="n">Moyenne</th>${C.univ?'<th class="c">Crédits</th><th class="c">Décision</th>':'<th>Mention</th><th>Décision du conseil</th>'}</tr>${L}</table>
+   <div class="sig"><div>${C.univ?'Le président du jury':'Le professeur principal'}</div><div>${esc(C.p.titre_directeur)}</div><div>${C.univ?'Les membres du jury':'Le censeur'}</div></div></div>`);journal('pv');
+}
+
+// ── Écrans ──
+const selClasse=async(k,onch)=>{const C=(await mesClasses()).sort((a,b)=>String(a.nom).localeCompare(String(b.nom)));if(C.length===1&&!SCO.classe)SCO.classe=C[0].id;
+  return `<select class="in" id="${k}" onchange="${onch}"><option value="">Choisir une classe…</option>${C.map(c=>`<option value="${c.id}" ${SCO.classe===c.id?'selected':''}>${esc(c.nom)}</option>`).join('')}</select>`;};
+async function selPeriode(onch){const p=await scoParams();if(!SCO.periode||!scoPeriodes(p).includes(SCO.periode))SCO.periode=scoPeriodes(p)[0];
+  return `<select class="in" onchange="SCO.periode=this.value;${onch}">${scoPeriodes(p).map(x=>`<option ${x===SCO.periode?'selected':''}>${x}</option>`).join('')}</select>`;}
+async function vueNotes(){
+  const M=(SCO.classe?((await sb.from('sco_matieres').select('*').eq('classe_id',SCO.classe)).data||[]):[]).filter(m=>!estEns()||m.enseignant_id===PROFIL.enseignant_id);
+  if(SCO.matiere&&!M.some(m=>m.id===SCO.matiere))SCO.matiere=null;
+  const Ev=SCO.matiere?((await sb.from('sco_evaluations').select('*').eq('matiere_id',SCO.matiere)).data||[]).filter(e=>e.periode===SCO.periode):[];
+  let grille='';
+  if(SCO.evaluation&&Ev.some(e=>e.id===SCO.evaluation)){
+    const ev=Ev.find(e=>e.id===SCO.evaluation),E=((await sb.from('sco_eleves').select('*').eq('classe_id',SCO.classe)).data||[]).filter(e=>!['Abandon','Transféré'].includes(e.statut)).sort((a,b)=>nomEleve(a).localeCompare(nomEleve(b)));
+    const N=(await sb.from('sco_notes').select('*').eq('evaluation_id',ev.id)).data||[];
+    grille=`<section class="carte"><div class="tete s"><h2>${esc(ev.intitule)} — ${esc(ev.type||'')} · sur ${num(ev.note_sur)||20}</h2><button class="btn p" onclick="enregistrerNotes('${ev.id}')">Enregistrer les notes</button></div>
+      <div class="tab"><table><thead><tr><th>Élève</th><th>Matricule</th><th style="width:140px">Note</th><th style="width:90px">Absent</th></tr></thead><tbody>
+      ${E.map((e,i)=>{const n=N.find(x=>x.eleve_id===e.id);return `<tr><td>${esc(nomEleve(e))}</td><td>${esc(e.matricule||'')}</td><td><input class="in note" data-e="${e.id}" type="number" step="0.25" min="0" max="${num(ev.note_sur)||20}" value="${n&&n.note!=null?n.note:''}" aria-label="Note de ${esc(nomEleve(e))}" onkeydown="if(event.key==='Enter'){event.preventDefault();document.querySelectorAll('input.note')[${i+1}]?.focus();}"></td><td class="c"><input type="checkbox" class="abs" data-e="${e.id}" ${n?.absent?'checked':''} aria-label="Absent"></td></tr>`;}).join('')||'<tr><td colspan="4" class="vide">Aucun élève dans cette classe.</td></tr>'}</tbody></table></div></section>`;}
+  return `<div class="tete"><div><h1>Saisie des notes</h1><p class="note">Classe, matière, période, puis l’évaluation. Touche Entrée : élève suivant.</p></div></div>
+   <div class="outils">${await selClasse('nClasse',"SCO.classe=this.value;SCO.matiere=null;SCO.evaluation=null;route()")}
+    <select class="in" onchange="SCO.matiere=this.value;SCO.evaluation=null;route()" ${SCO.classe?'':'disabled'}><option value="">Matière…</option>${M.map(m=>`<option value="${m.id}" ${SCO.matiere===m.id?'selected':''}>${esc(m.nom)}</option>`).join('')}</select>
+    ${await selPeriode("SCO.evaluation=null;route()")}</div>
+   ${SCO.matiere?`<section class="carte"><div class="tete s"><h2>Évaluations de la période</h2><button class="btn" onclick="formulaire('sco_evaluations',null,{matiere_id:'${SCO.matiere}',periode:'${SCO.periode}'})">Nouvelle évaluation</button></div>
+     ${Ev.length?`<div class="outils">${Ev.map(e=>`<button class="btn ${SCO.evaluation===e.id?'p':''}" onclick="SCO.evaluation='${e.id}';route()">${esc(e.intitule)} · ${dfr(e.date)}</button>`).join('')}</div>`:'<p class="note">Aucune évaluation : créez-en une pour saisir les notes.</p>'}</section>`:''}${grille}`;
+}
+async function enregistrerNotes(evId){
+  const L=[...document.querySelectorAll('input.note')].map(i=>({eleve_id:i.dataset.e,note:i.value===''?null:num(i.value),absent:!!document.querySelector(`input.abs[data-e="${i.dataset.e}"]`)?.checked}));
+  const ev=(await sb.from('sco_evaluations').select('note_sur').eq('id',evId).single()).data,max=num(ev?.note_sur)||20;
+  const bad=L.find(l=>l.note!=null&&(l.note<0||l.note>max));if(bad){toast('Note hors barème (0 à '+max+')');return;}
+  const{error:e1}=await sb.from('sco_notes').delete().eq('evaluation_id',evId);if(e1){toast(e1.message);return;}
+  const rows=L.filter(l=>l.note!=null||l.absent).map(l=>({...l,evaluation_id:evId,tenant_id:ESP.tenant_id}));
+  if(rows.length){const{error}=await sb.from('sco_notes').insert(rows);if(error){toast('Enregistrement impossible : '+error.message);return;}}
+  journal('saisie_notes');toast(rows.length+' note(s) enregistrée(s)');
+}
+async function resultatsEnseignant(){
+  const p=await scoParams();let corps='';
+  if(SCO.classe){const M=((await sb.from('sco_matieres').select('*').eq('classe_id',SCO.classe)).data||[]).filter(m=>m.enseignant_id===PROFIL.enseignant_id);
+    const C=await scoCalcul(SCO.classe,SCO.periode);
+    corps=`<section class="carte tab"><table><thead><tr><th>Élève</th>${M.map(m=>`<th>${esc(m.nom)}</th>`).join('')}</tr></thead><tbody>${C.res.map(r=>`<tr><td>${esc(nomEleve(r.e))}</td>${M.map(m=>`<td>${f2(r.mats.find(x=>x.m.id===m.id)?.moy)}</td>`).join('')}</tr>`).join('')||'<tr><td class="vide">Aucun élève.</td></tr>'}</tbody></table></section>
+     <p class="note">Moyennes de vos matières. La moyenne générale, le rang et les bulletins sont établis par la direction après le ${scoUniv(p)?'jury':'conseil de classe'}.</p>`;}
+  return `<div class="tete"><div><h1>Résultats de mes matières</h1></div></div><div class="outils">${await selClasse('rClasse',"SCO.classe=this.value;route()")}${await selPeriode('route()')}</div>${corps||'<p class="note">Choisissez une classe.</p>'}`;
+}
+async function publierBulletins(classeId,periode){
+  const C=await scoCalcul(classeId,periode);const cl=await classeDe(classeId);
+  if(!confirm('Publier les '+(C.univ?'relevés':'bulletins')+' de '+(cl?.nom||'la classe')+' ('+periode+') ? Les familles et les '+(C.univ?'étudiants':'élèves')+' pourront les consulter.'))return;
+  const A=(await sb.from('sco_absences').select('eleve_id,type,justifiee').eq('tenant_id',ESP.tenant_id)).data||[];
+  for(const r of C.res){
+    r.absences=A.filter(a=>a.eleve_id===r.e.id&&a.type==='Absence'&&!a.justifiee).length;
+    const old=(await sb.from('sco_bulletins').select('id').eq('eleve_id',r.e.id).eq('periode',periode)).data||[];for(const o of old)await sb.from('sco_bulletins').delete().eq('id',o.id);
+    const{error}=await sb.from('sco_bulletins').insert({tenant_id:ESP.tenant_id,eleve_id:r.e.id,classe_id:classeId,periode,publie_le:auj(),moyenne:r.moy,rang:r.rang||null,resultat:C.univ?r.resultat:mention(r.moy),
+      donnees:{p:C.p,univ:C.univ,stats:C.stats,classe:{nom:cl?.nom||''},r}});
+    if(error){toast('Publication impossible : '+error.message);return;}
+  }
+  delete CACHE.sco_bulletins;journal('publication');toast(C.res.length+' '+(C.univ?'relevé(s)':'bulletin(s)')+' publié(s)');route();
+}
+async function bulletinPublie(id){const b=(await sb.from('sco_bulletins').select('*').eq('id',id).single()).data;if(!b){toast('Bulletin introuvable');return;}
+  const C=b.donnees;imprimer((C.univ?'Relevé':'Bulletin')+' — '+b.periode,blocBulletin(C,C.r,b.periode,await enteteEtab(C.p)));journal('consultation_bulletin');}
+async function vueResultats(){
+  if(estEns())return resultatsEnseignant();
+  let corps='';
+  if(SCO.classe){const pub=(await sb.from('sco_bulletins').select('publie_le').eq('classe_id',SCO.classe).eq('periode',SCO.periode).limit(1)).data?.[0];const C=await scoCalcul(SCO.classe,SCO.periode);
+    const L=[...C.res].sort((a,b)=>(a.rang||999)-(b.rang||999));
+    corps=`<div class="kpis">${kpi('Effectif',C.stats.effectif)}${kpi('Moyenne de la classe',f2(C.stats.moyenne))}${kpi(C.univ?'Taux d’admission':'Taux de réussite',(C.stats.reussite??'—')+' %','',C.stats.reussite!=null&&C.stats.reussite<50?'alerte':'ok')}${kpi('Plus forte · plus faible',f2(C.stats.max)+' · '+f2(C.stats.min))}</div>
+     <div class="outils"><button class="btn p" onclick="imprimerBulletins('${SCO.classe}','${SCO.periode}')">Imprimer tous les ${C.univ?'relevés':'bulletins'}</button>${peut('sco_bulletins')?`<button class="btn g" onclick="publierBulletins('${SCO.classe}','${SCO.periode}')">${pub?'Republier':'Publier'} aux familles</button>`:''}<span class="note" style="align-self:center">${pub?'Publiés le '+dfr(pub.publie_le):'Non publiés'}</span><button class="btn" onclick="imprimerPV('${SCO.classe}','${SCO.periode}')">${C.univ?'Procès-verbal de délibération':'Tableau du conseil de classe'}</button></div>
+     <section class="carte tab"><table><thead><tr><th>Rang</th><th>Élève</th><th>Moyenne</th>${C.univ?'<th>Crédits</th><th>Résultat</th>':'<th>Mention</th>'}<th></th></tr></thead><tbody>
+     ${L.map(r=>`<tr><td>${r.rang||'—'}</td><td>${esc(nomEleve(r.e))}</td><td><b>${f2(r.moy)}</b></td>${C.univ?`<td>${r.credits} / ${r.creditsTotal}</td><td><span class="pastille" style="color:${r.valide?'#2E7D32':'#B42318'}">${esc(r.resultat)}</span></td>`:`<td>${esc(mention(r.moy))}</td>`}<td><button class="btn s" onclick="imprimerBulletins('${SCO.classe}','${SCO.periode}','${r.e.id}')">${C.univ?'Relevé':'Bulletin'}</button></td></tr>`).join('')||`<tr><td colspan="6" class="vide">Aucun élève dans cette classe.</td></tr>`}</tbody></table></section>`;}
+  const p=await scoParams();
+  return `<div class="tete"><div><h1>${scoUniv(p)?'Résultats et relevés de notes':'Résultats et bulletins'}</h1><p class="note">Moyennes, ${scoUniv(p)?'crédits et décisions':'rangs et mentions'}, calculés à partir des notes saisies.</p></div></div>
+   <div class="outils">${await selClasse('rClasse',"SCO.classe=this.value;route()")}${await selPeriode('route()')}</div>${corps||'<p class="note">Choisissez une classe.</p>'}`;
+}
+async function vueAppel(){
+  if(!SCO.date)SCO.date=auj();if(!SCO.creneau)SCO.creneau='Matin';let liste='';
+  if(SCO.classe){const E=((await sb.from('sco_eleves').select('*').eq('classe_id',SCO.classe)).data||[]).filter(e=>!['Abandon','Transféré'].includes(e.statut)).sort((a,b)=>nomEleve(a).localeCompare(nomEleve(b)));
+    const A=((await sb.from('sco_absences').select('*').eq('date',SCO.date)).data||[]).filter(a=>a.creneau===SCO.creneau);
+    liste=`<section class="carte tab"><table><thead><tr><th>Élève</th><th>Présent</th><th>Absent</th><th>Retard</th></tr></thead><tbody>${E.map(e=>{const a=A.find(x=>x.eleve_id===e.id),v=a?a.type:'Présent';
+      return `<tr><td>${esc(nomEleve(e))}</td>${['Présent','Absence','Retard'].map(t=>`<td><input type="radio" name="ap_${e.id}" value="${t}" data-e="${e.id}" ${v===t?'checked':''} aria-label="${t} — ${esc(nomEleve(e))}"></td>`).join('')}</tr>`;}).join('')||'<tr><td colspan="4" class="vide">Aucun élève.</td></tr>'}</tbody></table></section>
+      <button class="btn p" onclick="enregistrerAppel()">Enregistrer l’appel</button>`;}
+  return `<div class="tete"><div><h1>Appel</h1><p class="note">Tous les élèves sont présents par défaut : ne cochez que les absents et les retards.</p></div></div>
+   <div class="outils">${await selClasse('aClasse',"SCO.classe=this.value;route()")}<input class="in" type="date" value="${SCO.date}" onchange="SCO.date=this.value;route()">
+   <select class="in" onchange="SCO.creneau=this.value;route()">${['Matin','Après-midi','Journée'].map(c=>`<option ${c===SCO.creneau?'selected':''}>${c}</option>`).join('')}</select></div>${liste}`;
+}
+async function enregistrerAppel(){
+  const ids=[...new Set([...document.querySelectorAll('input[type=radio][data-e]')].map(i=>i.dataset.e))];
+  const A=((await sb.from('sco_absences').select('id,eleve_id,creneau').eq('date',SCO.date)).data||[]).filter(a=>a.creneau===SCO.creneau&&ids.includes(a.eleve_id));
+  for(const a of A)await sb.from('sco_absences').delete().eq('id',a.id);
+  const rows=ids.map(id=>({eleve_id:id,type:document.querySelector(`input[name="ap_${id}"]:checked`)?.value})).filter(x=>x.type&&x.type!=='Présent')
+    .map(x=>({tenant_id:ESP.tenant_id,eleve_id:x.eleve_id,date:SCO.date,creneau:SCO.creneau,type:x.type,justifiee:false}));
+  if(rows.length){const{error}=await sb.from('sco_absences').insert(rows);if(error){toast(error.message);return;}}
+  delete CACHE.sco_absences;journal('appel');toast('Appel enregistré : '+rows.filter(r=>r.type==='Absence').length+' absent(s), '+rows.filter(r=>r.type==='Retard').length+' retard(s)');
+}
+async function vueEdt(){
+  const J=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];let grille='';
+  if(SCO.classe){const C=(await sb.from('sco_creneaux').select('*').eq('classe_id',SCO.classe)).data||[],M=await tous('sco_matieres'),Ens=await tous('sco_enseignants');
+    const H=[...new Set(C.map(c=>c.heure_debut+'–'+c.heure_fin))].sort();
+    grille=`<section class="carte tab"><table><thead><tr><th>Horaire</th>${J.map(j=>`<th>${j}</th>`).join('')}</tr></thead><tbody>${H.map(h=>`<tr><th>${esc(h)}</th>${J.map(j=>{const c=C.find(x=>x.jour===j&&x.heure_debut+'–'+x.heure_fin===h);if(!c)return'<td></td>';const m=M.find(x=>x.id===c.matiere_id),en=Ens.find(x=>x.id===m?.enseignant_id);
+      return `<td><a href="#fiche/sco_creneaux/${c.id}"><b>${esc(m?.nom||'')}</b></a><br><span class="note">${esc(en?nomEleve(en):'')}${c.salle?' · '+esc(c.salle):''}</span></td>`;}).join('')}</tr>`).join('')||`<tr><td colspan="7" class="vide">Aucun créneau.</td></tr>`}</tbody></table></section>`;}
+  return `<div class="tete"><div><h1>Emploi du temps</h1></div>${SCO.classe?`<button class="btn p" onclick="formulaire('sco_creneaux',null,{classe_id:'${SCO.classe}'})">Ajouter un créneau</button>`:''}</div>
+   <div class="outils">${await selClasse('eClasse',"SCO.classe=this.value;route()")}<button class="btn" onclick="window.print()">Imprimer</button></div>${grille}`;
+}
+async function soldes(classeId){
+  const E=(await sb.from('sco_eleves').select('*').eq('classe_id',classeId)).data||[],F=(await sb.from('sco_frais').select('*').eq('classe_id',classeId)).data||[];
+  const P=E.length?((await sb.from('sco_paiements').select('*').in('eleve_id',E.map(e=>e.id))).data||[]):[];const du=F.reduce((a,f)=>a+num(f.montant),0);
+  const echu=F.filter(f=>!f.echeance||f.echeance<=auj()).reduce((a,f)=>a+num(f.montant),0);
+  return E.filter(e=>!['Abandon','Transféré'].includes(e.statut)).map(e=>{const paye=P.filter(p=>p.eleve_id===e.id).reduce((a,p)=>a+num(p.montant),0);return{e,du,echu,paye,reste:du-paye,retard:Math.max(0,echu-paye)};});
+}
+async function vueRecouvrement(){
+  let corps='';
+  if(SCO.classe){const S=(await soldes(SCO.classe)).sort((a,b)=>b.retard-a.retard),du=S.reduce((a,s)=>a+s.du,0),paye=S.reduce((a,s)=>a+s.paye,0);
+    corps=`<div class="kpis">${kpi('Attendu',fcfa(du))}${kpi('Encaissé',fcfa(paye),du?Math.round(100*paye/du)+' %':'','ok')}${kpi('Reste à encaisser',fcfa(du-paye))}${kpi('Élèves en retard',S.filter(s=>s.retard>0).length,'',S.some(s=>s.retard>0)?'alerte':'ok')}</div>
+     <section class="carte tab"><table><thead><tr><th>Élève</th><th>Dû</th><th>Payé</th><th>Reste</th><th>En retard</th><th></th></tr></thead><tbody>${S.map(s=>`<tr><td><a href="#fiche/sco_eleves/${s.e.id}">${esc(nomEleve(s.e))}</a></td><td>${fcfa(s.du)}</td><td>${fcfa(s.paye)}</td><td>${fcfa(s.reste)}</td><td>${s.retard?`<span class="pastille" style="color:#B42318">${fcfa(s.retard)}</span>`:'—'}</td><td>${peut('sco_paiements')?`<button class="btn s" onclick="formulaire('sco_paiements',null,{eleve_id:'${s.e.id}'})">Encaisser</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="vide">Aucun élève.</td></tr>'}</tbody></table></section>`;}
+  return `<div class="tete"><div><h1>Frais de scolarité</h1><p class="note">Le montant dû vient du barème de la classe (menu « Barème des frais »).</p></div></div><div class="outils">${await selClasse('fClasse',"SCO.classe=this.value;route()")}</div>${corps||'<p class="note">Choisissez une classe.</p>'}`;
+}
+async function recu(id){
+  const r=(await sb.from('sco_paiements').select('*').eq('id',id).single()).data,e=(await sb.from('sco_eleves').select('*').eq('id',r.eleve_id).single()).data,p=await scoParams();
+  const cl=await classeDe(e.classe_id),S=(await soldes(e.classe_id)).find(s=>s.e.id===e.id),ent=await enteteEtab(p);
+  imprimer('Reçu '+r.numero,`<div class="page">${ent}<h1>REÇU DE PAIEMENT N° ${esc(r.numero||'')}</h1>
+   <table><tr><th>Élève</th><td>${esc(nomEleve(e))} — matricule ${esc(e.matricule||'')}</td></tr><tr><th>Classe</th><td>${esc(cl?.nom||'')}</td></tr><tr><th>Objet</th><td>${esc(r.objet||'Frais de scolarité')}</td></tr>
+   <tr><th>Montant reçu</th><td><b>${fcfa(r.montant)}</b></td></tr><tr><th>Mode</th><td>${esc(r.mode||'')}${r.reference?' — réf. '+esc(r.reference):''}</td></tr><tr><th>Date</th><td>${dlong(r.date)}</td></tr><tr><th>Reste à payer</th><td>${fcfa(S?.reste||0)}</td></tr></table>
+   <div class="sig"><div>Le caissier</div><div></div><div>Le payeur</div></div></div>`);journal('recu');
+}
+async function certificat(id){
+  const e=(await sb.from('sco_eleves').select('*').eq('id',id).single()).data,p=await scoParams(),cl=await classeDe(e.classe_id),ent=await enteteEtab(p);
+  imprimer('Certificat',`<div class="page">${ent}<h1 style="margin-top:40px">CERTIFICAT DE SCOLARITÉ</h1>
+   <p style="font-size:14px;line-height:1.9;margin-top:30px">${esc(p.titre_directeur)} de ${esc(p.nom)} certifie que <b>${esc(nomEleve(e))}</b>, né(e) le ${dfr(e.date_naissance)||'……'}${e.lieu_naissance?' à '+esc(e.lieu_naissance):''}, matricule ${esc(e.matricule||'')},
+   est régulièrement inscrit(e) en <b>${esc(cl?.nom||'')}</b> pour l’année ${scoUniv(p)?'universitaire':'scolaire'} ${esc(p.annee)}.</p>
+   <p style="font-size:14px">Ce certificat est délivré pour servir et valoir ce que de droit.</p><p style="margin-top:40px;text-align:right;font-size:14px">Fait le ${dlong(auj())}<br><br>${esc(p.titre_directeur)}${p.directeur?'<br>'+esc(p.directeur):''}</p></div>`);journal('certificat');
+}
+
+
+// ── Comptes et accès (Direction) ──
+async function creerCompte(prenom,nom,telephone){
+  const{data,error}=await sb.functions.invoke('labs-comptes',{body:{action:'membre',tenant_id:ESP.tenant_id,prenom,nom,telephone}});
+  if(error&&!data)throw new Error(error.message);if(data?.error)throw new Error(data.error);
+  const{data:m}=await sb.from('labs_membres').select('user_id,nom').eq('tenant_id',ESP.tenant_id);MEMBRES=m||MEMBRES;return data.acces;
+}
+var ACCES_CREES=[];
+function afficherAccesCrees(){
+  if(!ACCES_CREES.length)return;const url=location.origin+location.pathname.replace(/ecole\/?$/,'');
+  const msg=a=>`Bonjour ${a.nom},\nVoici votre accès à ${ESP.nom} (${a.qualite}) :\n${url}\nIdentifiant : ${a.identifiant}\nMot de passe provisoire : ${a.mot_de_passe}\nÀ la première connexion, vous choisirez votre propre mot de passe.`;
+  window._ACC=ACCES_CREES.map(a=>({...a,msg:msg(a)}));
+  dialogue(ACCES_CREES.length+' accès créé(s)',`<p class="note">Transmettez ces accès maintenant : les mots de passe provisoires ne seront plus affichés.</p><div class="tab"><table><thead><tr><th>Personne</th><th>Identifiant</th><th>Mot de passe</th><th></th></tr></thead><tbody>
+    ${window._ACC.map((a,i)=>{let t=String(a.telephone||'').replace(/\D/g,'');if(t.length===10)t='225'+t;return `<tr><td>${esc(a.nom)}<br><span class="note">${esc(a.qualite)}</span></td><td><code>${esc(a.identifiant)}</code></td><td><code>${esc(a.mot_de_passe)}</code></td><td>${t?`<a class="btn s" target="_blank" rel="noopener" href="https://wa.me/${t}?text=${encodeURIComponent(a.msg)}">WhatsApp</a>`:''}</td></tr>`;}).join('')}</tbody></table></div>`,
+    `<button class="btn" onclick="imprimerAcces()">Imprimer les fiches d’accès</button><button class="btn p" onclick="ACCES_CREES=[];fermer();route()">Terminé</button>`);
+}
+function imprimerAcces(){const url=location.origin+location.pathname.replace(/ecole\/?$/,'');
+  imprimer('Fiches d’accès',`<div class="page" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${window._ACC.map(a=>`<div style="border:1.5px solid #0A2A66;border-radius:8px;padding:12px;break-inside:avoid"><b style="color:#0A2A66">${esc(ESP.nom)}</b><br><span>${esc(a.qualite)}</span><p style="font-size:14px;margin:8px 0"><b>${esc(a.nom)}</b></p>Adresse : ${esc(url)}<br>Identifiant : <b>${esc(a.identifiant)}</b><br>Mot de passe provisoire : <b>${esc(a.mot_de_passe)}</b><p style="font-size:10px;color:#5E6B82">À changer à la première connexion.</p></div>`).join('')}</div>`);}
+async function accesEnseignant(id){const e=(await sb.from('sco_enseignants').select('*').eq('id',id).single()).data;
+  try{const a=await creerCompte(e.prenom,e.nom,e.telephone);await sb.from('sco_enseignants').update({compte:a.user_id}).eq('id',id);delete CACHE.sco_enseignants;ACCES_CREES.push({...a,qualite:'Enseignant'});}catch(x){toast(nomEleve(e)+' : '+x.message);}}
+async function accesFamille(id,qui){const e=(await sb.from('sco_eleves').select('*').eq('id',id).single()).data;
+  if(qui==='parent'){
+    // Un même parent pour plusieurs enfants : le compte existant est réutilisé (même téléphone)
+    const tel=String(e.parent_telephone||'').replace(/\D/g,'');
+    if(tel){const{data:fr}=await sb.from('sco_eleves').select('compte_parent,parent_telephone').eq('tenant_id',ESP.tenant_id);const x=(fr||[]).find(f=>f.compte_parent&&String(f.parent_telephone||'').replace(/\D/g,'')===tel);
+      if(x){await sb.from('sco_eleves').update({compte_parent:x.compte_parent}).eq('id',id);delete CACHE.sco_eleves;toast('Rattaché au compte existant du parent');return;}}
+    const[pn,...nn]=String(e.parent_nom||('Parent '+nomEleve(e))).trim().split(/\s+/);
+    try{const a=await creerCompte(pn,nn.join(' ')||e.nom,e.parent_telephone);await sb.from('sco_eleves').update({compte_parent:a.user_id}).eq('id',id);ACCES_CREES.push({...a,qualite:'Parent de '+nomEleve(e)});}catch(x){toast(x.message);}
+  }else{try{const a=await creerCompte(e.prenom,e.nom,e.telephone);await sb.from('sco_eleves').update({compte_eleve:a.user_id}).eq('id',id);ACCES_CREES.push({...a,qualite:'Élève / étudiant'});}catch(x){toast(x.message);}}
+  delete CACHE.sco_eleves;}
+async function accesEnMasse(qui){const E=((await sb.from('sco_eleves').select('*').eq('classe_id',SCO.classe)).data||[]).filter(e=>!['Abandon','Transféré'].includes(e.statut)&&!(qui==='parent'?e.compte_parent:e.compte_eleve));
+  if(!E.length){toast('Tous les accès existent déjà');return;}if(!confirm('Créer '+E.length+' accès '+(qui==='parent'?'parents':'élèves')+' ?'))return;
+  for(const e of E){await accesFamille(e.id,qui);}afficherAccesCrees();}
+async function ajouterPersonnel(){
+  dialogue('Ajouter un membre du personnel',`<div class="form"><div><label class="f" for="pPr">Prénom</label><input class="in" id="pPr"></div><div><label class="f" for="pNo">Nom</label><input class="in" id="pNo"></div>
+    <div><label class="f" for="pTe">Téléphone</label><input class="in" id="pTe"></div><div><label class="f" for="pPf">Profil</label><select class="in" id="pPf"><option>Scolarité</option><option>Économat</option><option>Direction</option></select></div>
+    <div class="large"><label class="f" for="pFo">Fonction</label><input class="in" id="pFo" placeholder="Censeur, secrétaire, comptable…"></div></div><div class="err" id="pErr"></div>`,
+    `<button class="btn" onclick="fermer()">Annuler</button><button class="btn p" id="pGo" onclick="validerPersonnel()">Créer l’accès</button>`);}
+async function validerPersonnel(){const b=$('#pGo');b.disabled=true;
+  try{const a=await creerCompte($('#pPr').value,$('#pNo').value,$('#pTe').value);const{error}=await sb.from('sco_profils').insert({tenant_id:ESP.tenant_id,compte:a.user_id,profil:$('#pPf').value,fonction:$('#pFo').value||null});
+    if(error)throw new Error(error.message);delete CACHE.sco_profils;ACCES_CREES.push({...a,qualite:$('#pPf').value+($('#pFo').value?' — '+$('#pFo').value:'')});fermer();afficherAccesCrees();}catch(x){$('#pErr').textContent=x.message;b.disabled=false;}}
+async function vueAcces(){
+  const[P,Ens]=await Promise.all([charger('sco_profils'),charger('sco_enseignants')]);const nm=id=>MEMBRES.find(m=>m.user_id===id)?.nom||'—';
+  let eleves='';
+  if(SCO.classe){const E=((await sb.from('sco_eleves').select('*').eq('classe_id',SCO.classe)).data||[]).filter(e=>!['Abandon','Transféré'].includes(e.statut)).sort((a,b)=>nomEleve(a).localeCompare(nomEleve(b)));
+    eleves=`<div class="outils"><button class="btn" onclick="accesEnMasse('parent')">Créer les accès parents manquants</button><button class="btn" onclick="accesEnMasse('eleve')">Créer les accès élèves manquants</button></div>
+     <section class="carte tab"><table><thead><tr><th>Élève</th><th>Accès parent</th><th>Accès élève</th></tr></thead><tbody>${E.map(e=>`<tr><td>${esc(nomEleve(e))}<br><span class="note">${esc(e.parent_nom||'')} ${esc(e.parent_telephone||'')}</span></td>
+      <td>${e.compte_parent?'✓ '+esc(nm(e.compte_parent)):`<button class="btn s" onclick="accesFamille('${e.id}','parent').then(afficherAccesCrees)">Créer</button>`}</td>
+      <td>${e.compte_eleve?'✓ '+esc(nm(e.compte_eleve)):`<button class="btn s" onclick="accesFamille('${e.id}','eleve').then(afficherAccesCrees)">Créer</button>`}</td></tr>`).join('')||'<tr><td colspan="3" class="vide">Aucun élève.</td></tr>'}</tbody></table></section>`;}
+  return `<div class="tete"><div><h1>Comptes et accès</h1><p class="note">Chaque personne voit uniquement ce qui la concerne : un enseignant ses classes, un parent ses enfants, un élève ses propres résultats.</p></div></div>
+   <section class="carte"><div class="tete s"><h2>Personnel administratif</h2><button class="btn p" onclick="ajouterPersonnel()">Ajouter</button></div>
+    ${P.length?`<ul class="liste-simple">${P.map(x=>`<li><span>${esc(nm(x.compte))} — ${esc(x.fonction||'')}</span><span><span class="pastille">${esc(x.profil)}</span> <a class="btn s" href="#fiche/sco_profils/${x.id}">Modifier</a></span></li>`).join('')}</ul>`:'<p class="note">Vous êtes « Direction » en tant qu’administrateur de l’espace. Ajoutez ici la scolarité et l’économat.</p>'}</section>
+   <section class="carte"><h2>Enseignants</h2><ul class="liste-simple" style="margin-top:8px">${Ens.map(e=>`<li><span>${esc(nomEleve(e))} <span class="note">${esc(e.specialite||'')}</span></span>${e.compte?'<span class="note">✓ accès créé</span>':`<button class="btn s" onclick="accesEnseignant('${e.id}').then(afficherAccesCrees)">Créer l’accès</button>`}</li>`).join('')||'<li class="note">Ajoutez d’abord vos enseignants.</li>'}</ul></section>
+   <section class="carte"><h2>Élèves et parents</h2><div class="outils" style="margin-top:8px">${await selClasse('xClasse',"SCO.classe=this.value;route()")}</div></section>${eleves}`;
+}
+
+// ── Espace des familles (parents, élèves, étudiants) ──
+async function vueFamille(){
+  const p=await scoParams(),E=(await tous('sco_eleves')).filter(e=>PROFIL.enfants.includes(e.id));
+  if(!E.length)return `<div class="carte"><h2>Aucun ${scoUniv(p)?'étudiant':'élève'} rattaché à votre compte</h2><p class="note">Contactez l’établissement.</p></div>`;
+  const blocs=await Promise.all(E.map(async e=>{
+    const cl=await classeDe(e.classe_id),B=(await sb.from('sco_bulletins').select('*').eq('eleve_id',e.id).order('publie_le',{ascending:false})).data||[];
+    const N=(await sb.from('sco_notes').select('*').eq('eleve_id',e.id)).data||[],Ev=N.length?((await sb.from('sco_evaluations').select('*').in('id',N.map(n=>n.evaluation_id))).data||[]):[],M=await tous('sco_matieres');
+    const notes=N.map(n=>({n,ev:Ev.find(v=>v.id===n.evaluation_id)})).filter(x=>x.ev).sort((a,b)=>String(b.ev.date).localeCompare(String(a.ev.date))).slice(0,12);
+    const A=(await sb.from('sco_absences').select('*').eq('eleve_id',e.id).order('date',{ascending:false})).data||[];
+    const S=(await soldes(e.classe_id)).find(x=>x.e.id===e.id),P=(await sb.from('sco_paiements').select('*').eq('eleve_id',e.id).order('date',{ascending:false})).data||[];
+    return `<section class="carte"><div class="tete s"><div><h2>${esc(nomEleve(e))}</h2><p class="note">${esc(cl?.nom||'')} · matricule ${esc(e.matricule||'')}</p></div><button class="btn" onclick="SCO.classe='${e.classe_id}';location.hash='#edt'">Emploi du temps</button></div>
+     <div class="kpis">${kpi('Dernière moyenne',B[0]?f2(B[0].moyenne)+' / 20':'—',B[0]?esc(B[0].periode):'')}${scoUniv(p)?kpi('Résultat',B[0]?esc(B[0].resultat||'—'):'—'):kpi('Rang',B[0]?.rang?B[0].rang+(B[0].rang===1?'er':'e'):'—')}${kpi('Absences non justifiées',A.filter(a=>a.type==='Absence'&&!a.justifiee).length,A.filter(a=>a.type==='Retard').length+' retard(s)',A.some(a=>a.type==='Absence'&&!a.justifiee)?'alerte':'ok')}${kpi('Reste à payer',fcfa(S?.reste||0),S?.retard?fcfa(S.retard)+' en retard':'',S?.retard?'alerte':'ok')}</div>
+     <h3 style="margin-top:16px">${scoUniv(p)?'Relevés de notes':'Bulletins'}</h3>${B.length?`<ul class="liste-simple">${B.map(b=>`<li><span>${esc(b.periode)} — moyenne ${f2(b.moyenne)}${b.rang?' · rang '+b.rang:''}${b.resultat?' · '+esc(b.resultat):''}</span><button class="btn s" onclick="bulletinPublie('${b.id}')">Ouvrir</button></li>`).join('')}</ul>`:'<p class="note">Aucun bulletin publié pour le moment.</p>'}
+     <h3 style="margin-top:16px">Dernières notes</h3>${notes.length?`<ul class="liste-simple">${notes.map(x=>`<li><span>${esc(M.find(m=>m.id===x.ev.matiere_id)?.nom||'')} — ${esc(x.ev.intitule)}</span><span><b>${x.n.absent?'Absent':f2(x.n.note)+' / '+(num(x.ev.note_sur)||20)}</b> <span class="note">${dfr(x.ev.date)}</span></span></li>`).join('')}</ul>`:'<p class="note">Aucune note pour le moment.</p>'}
+     <h3 style="margin-top:16px">Absences et retards</h3>${A.length?`<ul class="liste-simple">${A.slice(0,8).map(a=>`<li><span>${esc(a.type)} — ${dfr(a.date)} ${esc(a.creneau||'')}</span><span class="note">${a.justifiee?'justifiée':'non justifiée'}</span></li>`).join('')}</ul>`:'<p class="note">Aucune absence.</p>'}
+     <h3 style="margin-top:16px">Paiements</h3>${P.length?`<ul class="liste-simple">${P.map(x=>`<li><span>${dfr(x.date)} — ${fcfa(x.montant)} <span class="note">${esc(x.mode||'')}</span></span><button class="btn s" onclick="recu('${x.id}')">Reçu</button></li>`).join('')}</ul>`:'<p class="note">Aucun paiement enregistré.</p>'}</section>`;}));
+  const An=(await tous('sco_annonces')).filter(a=>(a.destinataires==='Tous'||(PROFIL.profil==='Parent'&&a.destinataires==='Parents')||(PROFIL.profil==='Élève'&&a.destinataires==='Élèves'))&&(!a.classe_id||E.some(e=>e.classe_id===a.classe_id))).slice(0,5);
+  return `<div class="tete"><div><h1>${PROFIL.profil==='Parent'?'Espace parent':'Mon espace'}</h1><p class="note">${esc(p.nom)} · année ${esc(p.annee)}</p></div></div>
+   ${An.length?`<section class="carte"><h2>Annonces</h2><ul class="liste-simple" style="margin-top:8px">${An.map(a=>`<li><span><b>${esc(a.titre)}</b><br>${esc(a.contenu||'')}</span><span class="note">${dfr(a.date)}</span></li>`).join('')}</ul></section>`:''}${blocs.join('')}`;
+}
+// ── Espace enseignant ──
+async function vueEnseignant(){
+  const C=await mesClasses(),M=(await tous('sco_matieres')).filter(m=>m.enseignant_id===PROFIL.enseignant_id),E=(await tous('sco_enseignants')).find(e=>e.id===PROFIL.enseignant_id);
+  return `<div class="tete"><div><h1>Bonjour ${esc(E?.prenom||'')}</h1><p class="note">${C.length} classe(s) · ${M.length} matière(s)</p></div></div>
+   ${C.map(c=>`<section class="carte"><div class="tete s"><h2>${esc(c.nom)}</h2><div class="actions"><button class="btn" onclick="SCO.classe='${c.id}';location.hash='#appel'">Faire l’appel</button><button class="btn p" onclick="SCO.classe='${c.id}';SCO.matiere=null;location.hash='#notes'">Saisir des notes</button></div></div>
+     <p class="note">${M.filter(m=>m.classe_id===c.id).map(m=>esc(m.nom)).join(', ')||'Professeur principal'}</p></section>`).join('')||'<p class="note">Aucune classe ne vous est encore attribuée.</p>'}`;
+}
+const APP={k:'ecole',nom:'Gestion scolaire et universitaire',sqlSupplement:SCO_SQL,
+ init:async()=>{const{data,error}=await sb.rpc('sco_mon_profil',{p_tenant:ESP.tenant_id});if(!error&&data)PROFIL={profil:data.profil||null,enseignant_id:data.enseignant_id||null,enfants:data.enfants||[]};},
+ titreAccueil:()=>estFamille()?(PROFIL.profil==='Parent'?'Espace parent':'Mon espace'):estEns()?'Mes classes':'Tableau de bord',
+ voirVue:k=>(SCO_VUES[k]||[]).includes(PROFIL.profil),
+ voirEntite:k=>SCO_ENT[PROFIL.profil]==='*'||(SCO_ENT[PROFIL.profil]||[]).includes(k),
+ voirEnfant:k=>estStaff()||(estEns()&&['sco_absences','sco_bulletins'].includes(k)),
+ peutEcrire:k=>(SCO_ECRIRE[k]||[]).includes(PROFIL.profil),
+ vues:[{k:'acces',l:'Comptes et accès',i:'M15 7a3 3 0 11-6 0 3 3 0 016 0M4 21v-1a6 6 0 0112 0v1M19 8v6M22 11h-6',rendu:vueAcces},{k:'notes',l:'Saisie des notes',i:'M4 20h4l10-10-4-4L4 16zM14 6l4 4',rendu:vueNotes},
+  {k:'resultats',l:'Résultats et bulletins',i:'M9 11l3 3 8-8M20 12v7H4V5h11',rendu:vueResultats},
+  {k:'appel',l:'Appel',i:'M9 11l3 3L22 4M3 12h4M3 6h6M3 18h8',rendu:vueAppel},
+  {k:'edt',l:'Emploi du temps',i:'M8 7V3M16 7V3M4 11h16M5 5h14v15H5z',rendu:vueEdt},
+  {k:'frais',l:'Frais de scolarité',i:'M3 7h18v10H3zM12 12a2 2 0 100-.01',rendu:vueRecouvrement}],
+ entites:[
+  {k:'sco_parametres',nom:'Établissement',un:'les informations de l’établissement',i:'M3 21h18M5 21V8l7-5 7 5v13M10 21v-6h4v6',titre:r=>r.nom_etablissement,
+   champs:[{k:'nom_etablissement',l:'Nom de l’établissement',req:1,liste:1,large:1},{k:'mode',l:'Mode',t:'select',opts:['Scolaire','Universitaire'],req:1,liste:1,def:'Scolaire',aide:'Scolaire : primaire, collège, lycée. Universitaire : universités et grandes écoles (LMD).'},
+    {k:'ordre',l:'Ordre d’enseignement',t:'select',opts:['Primaire','Secondaire général','Secondaire technique','Supérieur'],liste:1},{k:'decoupage',l:'Découpage de l’année',t:'select',opts:['Trimestres','Semestres'],def:'Trimestres',aide:'Le mode universitaire fonctionne toujours en semestres.'},
+    {k:'annee_scolaire',l:'Année en cours',def:'2026-2027',liste:1},{k:'seuil_reussite',l:'Moyenne de réussite / validation',t:'number',def:10},{k:'directeur',l:'Nom du chef d’établissement'},{k:'titre_directeur',l:'Titre (Le Directeur, Le Proviseur, Le Doyen…)'},
+    {k:'adresse',l:'Adresse',large:1},{k:'telephone',l:'Téléphone'},{k:'email',l:'E-mail'},{k:'devise',l:'Devise ou slogan'},{k:'logo',l:'Logo',t:'file',accept:'image/png,image/jpeg'}]},
+  {k:'sco_profils',nom:'Personnel et profils',un:'un membre du personnel',cache:1,titre:r=>MEMBRES.find(m=>m.user_id===r.compte)?.nom||'Compte',
+   champs:[{k:'compte',l:'Compte',t:'membre',req:1,liste:1},{k:'profil',l:'Profil',t:'select',opts:['Direction','Scolarité','Économat'],req:1,liste:1,def:'Scolarité'},{k:'fonction',l:'Fonction',liste:1,aide:'Ex. Censeur, Secrétaire, Comptable'}]},
+  {k:'sco_enseignants',nom:'Enseignants',un:'un enseignant',i:'M12 12a4 4 0 100-8 4 4 0 000 8M4 21a8 8 0 0116 0',tri:'nom asc',titre:r=>nomEleve(r),
+   champs:[{k:'nom',l:'Nom',req:1,liste:1},{k:'prenom',l:'Prénoms',liste:1},{k:'specialite',l:'Discipline / spécialité',liste:1},{k:'statut',l:'Statut',t:'select',opts:['Permanent','Vacataire','Contractuel'],liste:1,filtre:1,def:'Permanent'},
+    {k:'grade',l:'Grade (supérieur)',aide:'Assistant, Maître-assistant, Maître de conférences, Professeur…'},{k:'telephone',l:'Téléphone',liste:1},{k:'email',l:'E-mail'},{k:'taux_horaire',l:'Taux horaire (vacations)',t:'money'},{k:'compte',l:'Compte de connexion',t:'membre'}]},
+  {k:'sco_classes',nom:'Classes et groupes',un:'une classe',i:'M3 7h18M3 12h18M3 17h18',tri:'nom asc',titre:r=>r.nom,
+   champs:[{k:'nom',l:'Nom',req:1,liste:1,aide:'Ex. 6e A, Tle D2, L1 Informatique'},{k:'niveau',l:'Niveau',liste:1,aide:'Ex. CM2, 3e, Terminale, Licence 1, Master 2'},{k:'filiere',l:'Série / filière / parcours',liste:1},
+    {k:'annee_scolaire',l:'Année',def:'2026-2027',liste:1},{k:'effectif_max',l:'Effectif maximal',t:'number'},{k:'titulaire_id',l:'Professeur principal / responsable',t:'ref',ref:'sco_enseignants'},{k:'salle',l:'Salle habituelle'}],
+   actions:r=>`<button class="btn" onclick="SCO.classe='${r.id}';location.hash='#resultats'">Résultats</button><button class="btn" onclick="SCO.classe='${r.id}';location.hash='#appel'">Faire l’appel</button>`},
+  {k:'sco_matieres',nom:'Matières et ECUE',un:'une matière',i:'M4 19V5h11l5 5v9zM9 9h4',tri:'nom asc',titre:r=>r.nom,
+   champs:[{k:'classe_id',l:'Classe',t:'ref',ref:'sco_classes',parent:1,req:1,liste:1},{k:'nom',l:'Matière / élément constitutif (ECUE)',req:1,liste:1},{k:'code',l:'Code'},
+    {k:'coefficient',l:'Coefficient',t:'number',def:1,liste:1},{k:'ue',l:'Unité d’enseignement (UE)',liste:1,aide:'Mode universitaire : nom de l’UE qui regroupe cet élément. Laisser vide au primaire et au secondaire.'},
+    {k:'credits',l:'Crédits',t:'number',liste:1,aide:'Mode universitaire uniquement'},{k:'enseignant_id',l:'Enseignant',t:'ref',ref:'sco_enseignants',liste:1},{k:'enseignant_nom',l:'Nom affiché sur le bulletin'},
+    {k:'volume_horaire',l:'Volume horaire (h)',t:'number'}]},
+  {k:'sco_eleves',nom:'Élèves et étudiants',un:'un élève',i:'M12 12a4 4 0 100-8 4 4 0 000 8M4 21a8 8 0 0116 0',tri:'nom asc',titre:r=>nomEleve(r),
+   champs:[{k:'classe_id',l:'Classe',t:'ref',ref:'sco_classes',parent:1,req:1,liste:1},{k:'matricule',l:'Matricule',liste:1,aide:'Laisser vide pour une numérotation automatique'},{k:'nom',l:'Nom',req:1,liste:1},{k:'prenom',l:'Prénoms',liste:1},
+    {k:'sexe',l:'Sexe',t:'select',opts:['F','M'],liste:1,filtre:1},{k:'date_naissance',l:'Date de naissance',t:'date'},{k:'lieu_naissance',l:'Lieu de naissance'},
+    {k:'parent_nom',l:'Parent / tuteur'},{k:'parent_telephone',l:'Téléphone du parent',liste:1},{k:'telephone',l:'Téléphone de l’étudiant'},{k:'adresse',l:'Adresse'},
+    {k:'statut',l:'Statut',t:'select',opts:['Inscrit','Réinscrit','Transféré','Abandon','Diplômé'],liste:1,filtre:1,def:'Inscrit'},{k:'date_inscription',l:'Date d’inscription',t:'date',def:auj},{k:'photo',l:'Photo',t:'file',accept:'image/*',capture:1},
+    {k:'compte_parent',l:'Compte du parent',t:'membre',aide:'Créé depuis « Comptes et accès »'},{k:'compte_eleve',l:'Compte de l’élève / étudiant',t:'membre'}],
+   avantEnregistrer:async(o,id)=>{if(!id&&!o.matricule)o.matricule=await prochainNo('sco_eleves','matricule','MAT');},
+   actions:r=>`${estStaff()?`<button class="btn" onclick="certificat('${r.id}')">Certificat de scolarité</button>`:''}${peut('sco_paiements')?`<button class="btn" onclick="formulaire('sco_paiements',null,{eleve_id:'${r.id}'})">Encaisser</button>`:''}`,
+   avantFiche:async r=>{const S=(await soldes(r.classe_id)).find(s=>s.e.id===r.id),A=(await sb.from('sco_absences').select('type,justifiee').eq('eleve_id',r.id)).data||[];
+     const ph=r.photo?`<img alt="Photo de l’élève" src="${await urlFichier(r.photo)}" style="width:96px;height:96px;object-fit:cover;border-radius:10px;float:right">`:'';
+     return `${ph}<div class="kpis">${estEns()?'':kpi('Reste à payer',fcfa(S?.reste||0),S?.retard?fcfa(S.retard)+' en retard':'',S?.retard?'alerte':'ok')}${kpi('Absences non justifiées',A.filter(a=>a.type==='Absence'&&!a.justifiee).length)}${kpi('Retards',A.filter(a=>a.type==='Retard').length)}</div>`;}},
+  {k:'sco_evaluations',nom:'Évaluations',un:'une évaluation',cache:1,tri:'date asc',titre:r=>r.intitule,
+   champs:[{k:'matiere_id',l:'Matière',t:'ref',ref:'sco_matieres',parent:1,req:1,liste:1},{k:'periode',l:'Période',t:'select',opts:SCO_PERIODES,req:1,liste:1},{k:'type',l:'Type',t:'select',opts:SCO_TYPES,liste:1,def:'Devoir',aide:'« Rattrapage » (mode universitaire) remplace la moyenne de l’élément si elle est meilleure.'},
+    {k:'intitule',l:'Intitulé',req:1,liste:1,def:'Devoir 1'},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'note_sur',l:'Noté sur',t:'number',def:20},{k:'poids',l:'Poids dans la moyenne',t:'number',def:1}],
+   apresEnregistrer:async(v,nouveau)=>{if(nouveau){SCO.evaluation=v.id;FORM.retour=1;location.hash='#notes';}}},
+  {k:'sco_notes',nom:'Notes',un:'une note',cache:1,titre:r=>String(r.note??''),
+   champs:[{k:'evaluation_id',l:'Évaluation',t:'ref',ref:'sco_evaluations',parent:1,req:1},{k:'eleve_id',l:'Élève',t:'ref',ref:'sco_eleves',req:1,liste:1},{k:'note',l:'Note',t:'number',liste:1},{k:'absent',l:'Absent',t:'bool',liste:1}]},
+  {k:'sco_bulletins',nom:'Bulletins publiés',un:'un bulletin',cache:1,tri:'publie_le desc',titre:r=>r.periode,
+   champs:[{k:'eleve_id',l:'Élève',t:'ref',ref:'sco_eleves',parent:1,req:1,liste:1},{k:'classe_id',l:'Classe',t:'ref',ref:'sco_classes'},{k:'periode',l:'Période',t:'select',opts:SCO_PERIODES,req:1,liste:1},
+    {k:'moyenne',l:'Moyenne',t:'number',liste:1},{k:'rang',l:'Rang',t:'number',liste:1},{k:'resultat',l:'Résultat / mention',liste:1},{k:'publie_le',l:'Publié le',t:'date',liste:1},{k:'donnees',l:'Contenu',auto:1,cache:1,sql:'jsonb'}],
+   actions:r=>`<button class="btn p" onclick="bulletinPublie('${r.id}')">Ouvrir</button>`},
+  {k:'sco_absences',nom:'Absences et retards',un:'une absence',i:'M12 8v4l3 3M12 21a9 9 0 100-18 9 9 0 000 18',tri:'date desc',titre:r=>(r.type||'Absence')+' du '+dfr(r.date),
+   champs:[{k:'eleve_id',l:'Élève',t:'ref',ref:'sco_eleves',parent:1,req:1,liste:1},{k:'date',l:'Date',t:'date',req:1,liste:1,def:auj},{k:'creneau',l:'Créneau',t:'select',opts:['Matin','Après-midi','Journée'],liste:1,def:'Matin'},
+    {k:'type',l:'Type',t:'select',opts:['Absence','Retard'],liste:1,filtre:1,def:'Absence'},{k:'justifiee',l:'Justifiée',t:'bool',liste:1},{k:'motif',l:'Motif',large:1}]},
+  {k:'sco_creneaux',nom:'Créneaux',un:'un créneau',cache:1,titre:r=>r.jour+' '+r.heure_debut,
+   champs:[{k:'classe_id',l:'Classe',t:'ref',ref:'sco_classes',parent:1,req:1},{k:'jour',l:'Jour',t:'select',opts:['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'],req:1,liste:1},
+    {k:'heure_debut',l:'Début',req:1,liste:1,def:'08:00'},{k:'heure_fin',l:'Fin',req:1,liste:1,def:'10:00'},{k:'matiere_id',l:'Matière',t:'ref',ref:'sco_matieres',liste:1},{k:'salle',l:'Salle',liste:1}]},
+  {k:'sco_frais',nom:'Barème des frais',un:'un frais',i:'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',tri:'echeance asc',titre:r=>r.libelle,
+   champs:[{k:'classe_id',l:'Classe',t:'ref',ref:'sco_classes',parent:1,req:1,liste:1},{k:'libelle',l:'Libellé',req:1,liste:1,aide:'Ex. Inscription, Scolarité 1re tranche'},{k:'montant',l:'Montant',t:'money',req:1,liste:1},{k:'echeance',l:'Échéance',t:'date',liste:1}]},
+  {k:'sco_paiements',nom:'Encaissements',un:'un encaissement',i:'M3 7h18v10H3z',tri:'date desc',titre:r=>(r.numero||'Reçu')+' — '+fcfa(r.montant),
+   champs:[{k:'eleve_id',l:'Élève',t:'ref',ref:'sco_eleves',parent:1,req:1,liste:1},{k:'numero',l:'N° de reçu',auto:1,liste:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'objet',l:'Objet',liste:1,def:'Frais de scolarité'},
+    {k:'montant',l:'Montant',t:'money',req:1,liste:1},{k:'mode',l:'Mode',t:'select',opts:['Espèces','Mobile money','Virement','Chèque'],liste:1,def:'Espèces'},{k:'reference',l:'Référence de la transaction'}],
+   avantEnregistrer:async(o,id)=>{if(!id)o.numero=await prochainNo('sco_paiements','numero','REC');},
+   actions:r=>`<button class="btn p" onclick="recu('${r.id}')">Imprimer le reçu</button>`},
+  {k:'sco_annonces',nom:'Annonces',un:'une annonce',i:'M3 11l15-6v14L3 13zM7 12v6',tri:'date desc',titre:r=>r.titre,
+   filtreListe:r=>estStaff()||r.destinataires==='Tous'||(estEns()&&r.destinataires==='Enseignants')||(PROFIL.profil==='Parent'&&r.destinataires==='Parents')||(PROFIL.profil==='Élève'&&r.destinataires==='Élèves'),
+   champs:[{k:'titre',l:'Titre',req:1,liste:1,large:1},{k:'destinataires',l:'Destinataires',t:'select',opts:['Tous','Parents','Enseignants','Élèves'],liste:1,def:'Tous'},{k:'classe_id',l:'Classe concernée',t:'ref',ref:'sco_classes',liste:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'contenu',l:'Message',t:'textarea'}],
+   actions:r=>`<button class="btn" onclick="navigator.clipboard.writeText(${esc(JSON.stringify(r.titre+'\n\n'+(r.contenu||'')))}).then(()=>toast('Message copié : collez-le dans WhatsApp'))">Copier pour WhatsApp</button>`}],
+ accueil:async()=>{
+  if(!PROFIL.profil)return `<div class="carte"><h2>Aucun profil associé à votre compte</h2><p class="note">Demandez à la direction de l’établissement de vous attribuer un profil.</p></div>`;
+  if(estFamille())return vueFamille();if(estEns())return vueEnseignant();
+  const p=await scoParams(),param=(await tous('sco_parametres'))[0];
+  const[E,C,Ens]=await Promise.all([charger('sco_eleves'),charger('sco_classes'),charger('sco_enseignants')]);
+  const actifs=E.filter(e=>!['Abandon','Transféré'].includes(e.statut));
+  const F=(await sb.from('sco_frais').select('classe_id,montant').eq('tenant_id',ESP.tenant_id)).data||[],P=(await sb.from('sco_paiements').select('montant').eq('tenant_id',ESP.tenant_id)).data||[];
+  const du=actifs.reduce((a,e)=>a+F.filter(f=>f.classe_id===e.classe_id).reduce((s,f)=>s+num(f.montant),0),0),paye=P.reduce((a,x)=>a+num(x.montant),0);
+  const A=(await sb.from('sco_absences').select('date,type').eq('tenant_id',ESP.tenant_id)).data||[],mois=auj().slice(0,7);
+  const parClasse=C.map(c=>[c,actifs.filter(e=>e.classe_id===c.id).length]).sort((a,b)=>String(a[0].nom).localeCompare(String(b[0].nom)));
+  return `<div class="tete"><div><h1>${esc(p.nom)}</h1><p class="note">${scoUniv(p)?'Mode universitaire (LMD)':'Mode scolaire'} · année ${esc(p.annee)}</p></div><button class="btn p" onclick="formulaire('sco_eleves')">Inscrire ${scoUniv(p)?'un étudiant':'un élève'}</button></div>
+   ${param?'':`<section class="carte" style="border-color:#F3C98B;background:#FEF3E2"><p style="margin:0"><b>Pour commencer</b> : renseignez <a href="#liste/sco_parametres">votre établissement</a> (mode scolaire ou universitaire, année, logo), puis créez vos classes, vos matières et inscrivez vos ${scoUniv(p)?'étudiants':'élèves'}.</p></section>`}
+   <div class="kpis">${kpi(scoUniv(p)?'Étudiants':'Élèves',actifs.length,actifs.filter(e=>e.sexe==='F').length+' filles · '+actifs.filter(e=>e.sexe==='M').length+' garçons')}${kpi('Classes et groupes',C.length)}${kpi('Enseignants',Ens.length,Ens.filter(x=>x.statut==='Vacataire').length+' vacataires')}${kpi('Frais encaissés',du?Math.round(100*paye/du)+' %':'—',fcfa(paye)+' sur '+fcfa(du),du&&paye/du<.5?'alerte':'ok')}${kpi('Absences ce mois',A.filter(a=>String(a.date).startsWith(mois)&&a.type==='Absence').length)}</div>
+   <section class="carte"><h2>Effectifs par classe</h2>${parClasse.length?`<div style="margin-top:10px">${parClasse.map(([c,n])=>`<div style="display:grid;grid-template-columns:180px 1fr 50px;gap:10px;align-items:center;margin:6px 0"><a href="#fiche/sco_classes/${c.id}">${esc(c.nom)}</a><span style="height:12px;border-radius:6px;background:#E3EAF6;position:relative;overflow:hidden"><i style="position:absolute;inset:0 auto 0 0;width:${Math.min(100,c.effectif_max?100*n/c.effectif_max:100*n/Math.max(1,...parClasse.map(x=>x[1])))}%;background:#1565C0"></i></span><b>${n}${c.effectif_max?'/'+c.effectif_max:''}</b></div>`).join('')}</div>`:'<p class="note">Aucune classe créée.</p>'}</section>`;}
+};
+
+boot();
+</script>
+</body>
+</html>

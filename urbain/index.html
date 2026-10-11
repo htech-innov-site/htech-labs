@@ -94,6 +94,7 @@ async function boot(){
   }
   if(!ESP){$('#app').innerHTML=`<main class="wrap" style="padding:40px 20px"><div class="carte"><h2>Plateforme non disponible pour votre compte</h2><p class="note">Cette plateforme n’est pas activée pour votre espace, ou la période de test est terminée. <a href="../">Retour au portail</a></p></div></main>`;return;}
   const{data:m}=await sb.from('labs_membres').select('user_id,nom').eq('tenant_id',ESP.tenant_id);MEMBRES=m||[];
+  if(APP.init)await APP.init();
   if(!sessionStorage.getItem('ouv_'+APP.k)){sessionStorage.setItem('ouv_'+APP.k,'1');journal('ouverture');}
   window.addEventListener('hashchange',route);route();
 }
@@ -101,7 +102,7 @@ function journal(action){if(ESP?.role==='support')return;sb.from('labs_journal')
 
 // ── Habillage ──
 function cadre(contenu){
-  const nav=[{h:'#',l:'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
+  const nav=[{h:'#',l:APP.titreAccueil?APP.titreAccueil():'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).filter(v=>!APP.voirVue||APP.voirVue(v.k)).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache&&(!APP.voirEntite||APP.voirEntite(e.k))).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
   const actif=location.hash.replace('#','').split('/').slice(0,2).join('/')||'accueil';
   $('#app').innerHTML=`<header class="top"><div class="wrap-l"><a class="logo" href="../" title="Retour au portail H TECH Labs"><svg width="30" height="20" viewBox="0 0 34 22" aria-hidden="true"><g fill="none" stroke="#0A2A66" stroke-width="3.2" stroke-linecap="round"><path d="M3 20a14 14 0 0128 0"/><path d="M9 20a8 8 0 0116 0"/><path d="M14.5 20a2.5 2.5 0 015 0"/></g></svg><div><b>${esc(APP.nom)}</b><span>${esc(ESP.nom)}${ESP.role==='support'?' — accès assistance':''}</span></div></a>
     <div class="qui"><span class="reste" title="Jours restants de la période de test">${ESP.jours_restants} j</span><button class="btn s" onclick="exporter()">Exporter mes données</button><a class="btn s" href="../">Portail</a></div></div></header>
@@ -111,7 +112,7 @@ async function route(){
   const[v,a,b]=location.hash.replace('#','').split('/');
   try{
     if(!v){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await APP.accueil();APP.apresAccueil&&APP.apresAccueil();return;}
-    const vs=(APP.vues||[]).find(x=>x.k===v);if(vs){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await vs.rendu();vs.apres&&vs.apres();return;}
+    const vs=(APP.vues||[]).find(x=>x.k===v&&(!APP.voirVue||APP.voirVue(x.k)));if(vs){cadre('<p class="note">Chargement…</p>');$('#vue').innerHTML=await vs.rendu();vs.apres&&vs.apres();return;}
     if(v==='liste'){cadre('');await vueListe(a);return;}
     if(v==='fiche'){cadre('');await vueFiche(a,b);return;}
     location.hash='';
@@ -160,16 +161,17 @@ async function valeur(c,r){
 
 // ── Liste ──
 let FILTRE={};
+const peut=k=>!APP.peutEcrire||APP.peutEcrire(k);
 async function vueListe(k){
   const e=ENT(k);if(!e){location.hash='';return;}
-  const rows=await charger(k);const q=(FILTRE[k+'_q']||'').toLowerCase();
+  const rows=(await charger(k)).filter(r=>!e.filtreListe||e.filtreListe(r));const q=(FILTRE[k+'_q']||'').toLowerCase();
   const cols=e.champs.filter(c=>c.liste);const fs=e.champs.filter(c=>c.filtre);
   const vis=rows.filter(r=>(!q||JSON.stringify(r).toLowerCase().includes(q))&&fs.every(c=>!FILTRE[k+'_'+c.k]||r[c.k]===FILTRE[k+'_'+c.k]));
   const lignes=await Promise.all(vis.map(async r=>`<tr tabindex="0" onclick="location.hash='#fiche/${k}/${r.id}'" onkeydown="if(event.key==='Enter')location.hash='#fiche/${k}/${r.id}'">${(await Promise.all(cols.map(async c=>`<td>${await valeur(c,r)}</td>`))).join('')}</tr>`));
-  $('#vue').innerHTML=`<div class="tete"><div><h1>${esc(e.nom)}</h1><p class="note">${vis.length} sur ${rows.length}</p></div><button class="btn p" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'')}</button></div>
+  $('#vue').innerHTML=`<div class="tete"><div><h1>${esc(e.nom)}</h1><p class="note">${vis.length} sur ${rows.length}</p></div>${peut(k)?`<button class="btn p" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'')}</button>`:''}</div>
     <div class="outils"><input class="in" placeholder="Rechercher…" value="${esc(FILTRE[k+'_q']||'')}" oninput="FILTRE['${k}_q']=this.value;clearTimeout(window._fq);window._fq=setTimeout(()=>vueListe('${k}'),250)">
     ${fs.map(c=>`<select class="in" onchange="FILTRE['${k}_${c.k}']=this.value;vueListe('${k}')"><option value="">${esc(c.l)} : tous</option>${c.opts.map(o=>`<option ${FILTRE[k+'_'+c.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`).join('')}</div>
-    <div class="carte tab"><table><thead><tr>${cols.map(c=>`<th>${esc(c.l)}</th>`).join('')}</tr></thead><tbody>${lignes.join('')||`<tr><td colspan="${cols.length}" class="vide">Aucun élément. <button class="lien" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'le premier')}</button></td></tr>`}</tbody></table></div>`;
+    <div class="carte tab"><table><thead><tr>${cols.map(c=>`<th>${esc(c.l)}</th>`).join('')}</tr></thead><tbody>${lignes.join('')||`<tr><td colspan="${cols.length}" class="vide">Aucun élément.${peut(k)?` <button class="lien" onclick="formulaire('${k}')">Ajouter ${esc(e.un||'le premier')}</button>`:''}</td></tr>`}</tbody></table></div>`;
   if(e.apresListe)e.apresListe(vis);
 }
 
@@ -177,12 +179,12 @@ async function vueListe(k){
 async function vueFiche(k,id){
   const e=ENT(k);const{data:r,error}=await sb.from(k).select('*').eq('id',id).single();if(error||!r){$('#vue').innerHTML='<div class="carte">Élément introuvable.</div>';return;}
   const champs=await Promise.all(e.champs.filter(c=>!c.cache).map(async c=>`<div class="champ ${c.t==='textarea'||c.large?'large':''}"><dt>${esc(c.l)}</dt><dd>${await valeur(c,r)||'<span class="note">—</span>'}</dd></div>`));
-  const enfants=APP.entites.filter(x=>x.champs.some(c=>c.t==='ref'&&c.ref===k&&c.parent));
+  const enfants=APP.entites.filter(x=>x.champs.some(c=>c.t==='ref'&&c.ref===k&&c.parent)&&(!APP.voirEnfant||APP.voirEnfant(x.k)));
   const blocs=await Promise.all(enfants.map(async x=>{const c=x.champs.find(c=>c.ref===k&&c.parent);const L=(await sb.from(x.k).select('*').eq(c.k,id).order((x.tri||'created_at desc').split(' ')[0],{ascending:(x.tri||'').endsWith('asc')})).data||[];
     const cols=x.champs.filter(y=>y.liste&&y.k!==c.k);
-    return `<section class="carte"><div class="tete s"><h2>${esc(x.nom)} <span class="note">(${L.length})</span></h2><button class="btn s" onclick="formulaire('${x.k}',null,{${c.k}:'${id}'})">Ajouter</button></div>
+    return `<section class="carte"><div class="tete s"><h2>${esc(x.nom)} <span class="note">(${L.length})</span></h2>${peut(x.k)?`<button class="btn s" onclick="formulaire('${x.k}',null,{${c.k}:'${id}'})">Ajouter</button>`:''}</div>
       ${L.length?`<div class="tab"><table><thead><tr>${cols.map(y=>`<th>${esc(y.l)}</th>`).join('')}</tr></thead><tbody>${(await Promise.all(L.map(async z=>`<tr tabindex="0" onclick="location.hash='#fiche/${x.k}/${z.id}'">${(await Promise.all(cols.map(async y=>`<td>${await valeur(y,z)}</td>`))).join('')}</tr>`))).join('')}</tbody></table></div>`:'<p class="note">Aucun élément.</p>'}</section>`;}));
-  $('#vue').innerHTML=`<p class="fil"><a href="#liste/${k}">${esc(e.nom)}</a></p><div class="tete"><div><h1>${esc(titreDe(k,r))}</h1></div><div class="actions">${e.actions?e.actions(r):''}<button class="btn" onclick="formulaire('${k}','${id}')">Modifier</button><button class="btn" onclick="supprimer('${k}','${id}').then(ok=>ok&&(location.hash='#liste/${k}'))">Supprimer</button></div></div>
+  $('#vue').innerHTML=`<p class="fil"><a href="#liste/${k}">${esc(e.nom)}</a></p><div class="tete"><div><h1>${esc(titreDe(k,r))}</h1></div><div class="actions">${e.actions?e.actions(r):''}${peut(k)?`<button class="btn" onclick="formulaire('${k}','${id}')">Modifier</button><button class="btn" onclick="supprimer('${k}','${id}').then(ok=>ok&&(location.hash='#liste/${k}'))">Supprimer</button>`:''}</div></div>
     ${e.avantFiche?await e.avantFiche(r):''}<section class="carte"><dl class="champs">${champs.join('')}</dl></section>${e.apresFiche?await e.apresFiche(r):''}${blocs.join('')}`;
   if(e.ouverture)e.ouverture(r);
 }

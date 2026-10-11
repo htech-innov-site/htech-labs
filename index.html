@@ -85,6 +85,7 @@ const WHATSAPP='2250714942421';
 const PLATEFORMES=[
  {k:'urbain',nom:'Suivi des projets urbains',desc:'Carte des projets, avancement physique et financier, photos de chantier, rapports de pilotage.',chemin:'urbain/',pret:true,ico:'M4 20V9l8-5 8 5v11M9 20v-6h6v6'},
  {k:'ged',nom:'Collaboration et documents',desc:'Espaces projet, versions des plans, circuits de visa, annotations et comptes rendus.',chemin:'ged/',pret:true,ico:'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6'},
+ {k:'ecole',nom:'Gestion scolaire et universitaire',desc:'Élèves et étudiants, enseignants, notes, bulletins et relevés (LMD), appel, emplois du temps, frais de scolarité.',chemin:'ecole/',pret:true,ico:'M3 10l9-6 9 6-9 6zM6 12v5c3 2.5 9 2.5 12 0v-5M21 10v6'},
  {k:'education',nom:'Formation et apprentissage',desc:'Espaces apprenants et formateurs, cours, devoirs, suivi de progression, certificats.',chemin:'education/',pret:true,ico:'M3 8l9-4 9 4-9 4zM7 10v5c3 2 7 2 10 0v-5'},
  {k:'pme',nom:'Gestion commerciale',desc:'Devis, factures, bons de commande, clients et fournisseurs, tableaux de bord.',chemin:'pme/',pret:true,ico:'M4 4h16v16H4zM8 9h8M8 13h8M8 17h5'},
  {k:'industrie',nom:'Maintenance et QHSE',desc:'Parc d’équipements, interventions, maintenance préventive, incidents et audits.',chemin:'industrie/',pret:true,ico:'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v3M12 19v3M2 12h3M19 12h3'}];
@@ -238,7 +239,7 @@ async function pageConsole(){
     ${(T||[]).map(t=>`<tr><td><strong>${esc(t.nom)}</strong><br><span class="note">${esc(t.secteur||'')}${t.contact_nom?' · '+esc(t.contact_nom):''}</span></td>
       <td class="opt" style="font-size:14px">${(t.plateformes||[]).map(k=>esc(PLATEFORMES.find(p=>p.k===k)?.nom||k)).join('<br>')}</td>
       <td><div class="mini ${t.statut==='actif'&&jr(t)<=15?'alerte':''}"><i style="width:${pct(t)}%"></i></div><span class="note">${t.statut==='actif'?jr(t)+' j restants':'jusqu’au '+dfr(t.date_fin)}</span></td>
-      <td>${nbM(t.id)} / ${t.max_membres}</td><td class="opt note">${act(t.id)} actions${der(t.id)?'<br>dernière le '+dfr(der(t.id)):''}</td>
+      <td>${nbM(t.id)} / ${t.max_membres} <button class="btn s" title="Modifier la limite de comptes" onclick="limite('${t.id}',${t.max_membres})">±</button></td><td class="opt note">${act(t.id)} actions${der(t.id)?'<br>dernière le '+dfr(der(t.id)):''}</td>
       <td><select class="in" style="padding:5px 8px;width:auto" onchange="statut('${t.id}',this.value)">${['actif','suspendu','termine','converti'].map(s=>`<option value="${s}" ${s===t.statut?'selected':''}>${{actif:'En test',suspendu:'Suspendu',termine:'Terminé',converti:'Converti'}[s]}</option>`).join('')}</select></td>
       <td style="white-space:nowrap"><button class="btn s" onclick="dlgMembre('${t.id}',true)">Ajouter un compte</button> <button class="btn s" onclick="prolonger('${t.id}')">+30 j</button></td></tr>`).join('')
       ||'<tr><td colspan="7" class="note" style="padding:20px">Aucun espace. Ouvrez le premier pour un partenaire pilote.</td></tr>'}</tbody></table></section>
@@ -255,7 +256,7 @@ function dlgEspace(){
     <label class="f" for="eCon">Contact principal (nom, téléphone)</label><input class="in" id="eCon" placeholder="M. Koné · 07 00 00 00 00">
     <label class="f">Plateformes à tester</label><div class="choix">${PLATEFORMES.map(p=>`<label><input type="checkbox" value="${p.k}" class="ePl"> ${esc(p.nom)}</label>`).join('')}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"><div><label class="f" for="eDeb">Début</label><input class="in" id="eDeb" type="date" value="${d0}"></div>
-    <div><label class="f" for="eMois">Durée (mois)</label><input class="in" id="eMois" type="number" min="1" max="6" value="3"></div><div><label class="f" for="eMax">Comptes max</label><input class="in" id="eMax" type="number" min="1" max="50" value="10"></div></div>
+    <div><label class="f" for="eMois">Durée (mois)</label><input class="in" id="eMois" type="number" min="1" max="6" value="3"></div><div><label class="f" for="eMax">Comptes max</label><input class="in" id="eMax" type="number" min="1" max="3000" value="10"></div></div>
     <div class="err" id="eErr"></div>`,`<button class="btn" onclick="fermer()">Annuler</button><button class="btn p" onclick="creerEspace()">Ouvrir l’espace</button>`);
 }
 async function creerEspace(){
@@ -271,6 +272,8 @@ async function creerEspace(){
   const ad=$('#nAd');if(ad)ad.checked=true;
 }
 async function statut(id,s){const{error}=await sb.from('labs_tenants').update({statut:s,updated_at:new Date().toISOString()}).eq('id',id);toast(error?error.message:'Statut mis à jour');pageConsole();}
+async function limite(id,v){const n=parseInt(prompt('Nombre maximal de comptes pour cet espace (une école : élèves, parents, enseignants et personnel) :',v));if(!n||n<1)return;
+  const{error}=await sb.from('labs_tenants').update({max_membres:Math.min(n,3000),updated_at:new Date().toISOString()}).eq('id',id);toast(error?error.message:'Limite mise à jour');pageConsole();}
 async function prolonger(id){const t=window._T.find(x=>x.id===id);const f=new Date(t.date_fin+'T12:00:00');f.setDate(f.getDate()+30);
   if(!confirm('Prolonger le test de '+t.nom+' jusqu’au '+dfr(f.toISOString())+' ?'))return;
   const{error}=await sb.from('labs_tenants').update({date_fin:f.toISOString().slice(0,10),updated_at:new Date().toISOString()}).eq('id',id);toast(error?error.message:'Période prolongée de 30 jours');pageConsole();}
