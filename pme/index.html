@@ -102,7 +102,7 @@ function journal(action){if(ESP?.role==='support')return;sb.from('labs_journal')
 
 // ── Habillage ──
 function cadre(contenu){
-  const nav=[{h:'#',l:APP.titreAccueil?APP.titreAccueil():'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).filter(v=>!APP.voirVue||APP.voirVue(v.k)).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache&&(!APP.voirEntite||APP.voirEntite(e.k))).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
+  const nav=[{h:'#',l:APP.titreAccueil?APP.titreAccueil():'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).filter(v=>!v.cache&&(!APP.voirVue||APP.voirVue(v.k))).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache&&(!APP.voirEntite||APP.voirEntite(e.k))).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
   const actif=location.hash.replace('#','').split('/').slice(0,2).join('/')||'accueil';
   $('#app').innerHTML=`<header class="top"><div class="wrap-l"><a class="logo" href="../" title="Retour au portail H TECH Labs"><svg width="30" height="20" viewBox="0 0 34 22" aria-hidden="true"><g fill="none" stroke="#0A2A66" stroke-width="3.2" stroke-linecap="round"><path d="M3 20a14 14 0 0128 0"/><path d="M9 20a8 8 0 0116 0"/><path d="M14.5 20a2.5 2.5 0 015 0"/></g></svg><div><b>${esc(APP.nom)}</b><span>${esc(ESP.nom)}${ESP.role==='support'?' — accès assistance':''}</span></div></a>
     <div class="qui"><span class="reste" title="Jours restants de la période de test">${ESP.jours_restants} j</span><button class="btn s" onclick="exporter()">Exporter mes données</button><a class="btn s" href="../">Portail</a></div></div></header>

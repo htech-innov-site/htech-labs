@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 :root{--navy:#0A2A66;--blue:#1565C0;--green:#3F8A1E;--green-l:#EDF6E8;--light:#F4F7FC;--line:#D5E0F0;--txt:#1E283C;--grey:#5E6B82;--amber:#B45309;--amber-l:#FEF3E2;--red:#B42318;--red-l:#FDECEC}
 *{box-sizing:border-box}html,body{margin:0}body{font-family:'Source Sans 3',system-ui,sans-serif;color:var(--txt);background:var(--light);font-size:16px;line-height:1.5}
@@ -102,7 +103,7 @@ function journal(action){if(ESP?.role==='support')return;sb.from('labs_journal')
 
 // ── Habillage ──
 function cadre(contenu){
-  const nav=[{h:'#',l:APP.titreAccueil?APP.titreAccueil():'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).filter(v=>!APP.voirVue||APP.voirVue(v.k)).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache&&(!APP.voirEntite||APP.voirEntite(e.k))).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
+  const nav=[{h:'#',l:APP.titreAccueil?APP.titreAccueil():'Tableau de bord',i:ICO.maison,v:'accueil'},...(APP.vues||[]).filter(v=>!v.cache&&(!APP.voirVue||APP.voirVue(v.k))).map(v=>({h:'#'+v.k,l:v.l,i:v.i,v:v.k})),...APP.entites.filter(e=>!e.cache&&(!APP.voirEntite||APP.voirEntite(e.k))).map(e=>({h:'#liste/'+e.k,l:e.nom,i:e.i||ICO.liste,v:'liste/'+e.k}))];
   const actif=location.hash.replace('#','').split('/').slice(0,2).join('/')||'accueil';
   $('#app').innerHTML=`<header class="top"><div class="wrap-l"><a class="logo" href="../" title="Retour au portail H TECH Labs"><svg width="30" height="20" viewBox="0 0 34 22" aria-hidden="true"><g fill="none" stroke="#0A2A66" stroke-width="3.2" stroke-linecap="round"><path d="M3 20a14 14 0 0128 0"/><path d="M9 20a8 8 0 0116 0"/><path d="M14.5 20a2.5 2.5 0 015 0"/></g></svg><div><b>${esc(APP.nom)}</b><span>${esc(ESP.nom)}${ESP.role==='support'?' — accès assistance':''}</span></div></a>
     <div class="qui"><span class="reste" title="Jours restants de la période de test">${ESP.jours_restants} j</span><button class="btn s" onclick="exporter()">Exporter mes données</button><a class="btn s" href="../">Portail</a></div></div></header>
@@ -261,52 +262,384 @@ const kpi=(l,v,s,c)=>`<div class="kpi ${c||''}"><span>${esc(l)}</span><b>${v}</b
 function csvDe(rows,cols){const L=[cols.map(c=>c.l).join(';'),...rows.map(r=>cols.map(c=>String(r[c.k]??'').replace(/[;\n]/g,' ')).join(';'))];return L.join('\n');}
 
 // ══════════════════════════════════════════════════════════════════════
-// LOT 2 — Suivi des projets urbains
+// LOT 2 — Suivi des projets urbains : pilotage, journal de chantier, validation à 3 niveaux,
+// rapport hebdomadaire d'activités (PDF à la charte H TECH INNOV)
 // ══════════════════════════════════════════════════════════════════════
 const URB_STATUTS=['Identification','Études','Passation des marchés','Travaux','Réceptionné','Suspendu'];
 const URB_COUL={'Identification':'#7A90A8','Études':'#0891B2','Passation des marchés':'#7C3AED','Travaux':'#1565C0','Réceptionné':'#3F8A1E','Suspendu':'#B42318'};
+const VAL_ST=['Brouillon','Soumis','Validé N1','Validé N2','Validé','Rejeté'];
+const VAL_COUL={'Brouillon':['#F1F3F7','#5E6B82'],'Soumis':['#FEF3E2','#B45309'],'Validé N1':['#E5EFFB','#1565C0'],'Validé N2':['#E5EFFB','#1565C0'],'Validé':['#EDF6E8','#3F8A1E'],'Rejeté':['#FDECEC','#B42318']};
+const NIV_ATTENDU={'Soumis':1,'Validé N1':2,'Validé N2':3};
+const pastilleVal=s=>{const c=VAL_COUL[s]||VAL_COUL.Brouillon;return `<span class="pastille" style="background:${c[0]};color:${c[1]}">${esc(s||'Brouillon')}</span>`;};
+const nomMembre=id=>MEMBRES.find(m=>m.user_id===id)?.nom||'';
+const NIVEAU_NOMS=['Niveau 1 — Conducteur / chef d’équipe','Niveau 2 — Chef de projet','Niveau 3 — Maître d’ouvrage / bailleur'];
+var URB={jProjet:null,jDate:null,rap:null,onglet:0};
+
+// ── Validation à 3 niveaux (règles appliquées par la base) ──
+const validateurDe=(p,n)=>p?.['validateur_'+n]||null;
+const peutValider=(p,n,auteur)=>{if(!p||!n||auteur===USER.id)return false;const v=validateurDe(p,n);return v?v===USER.id:ESP.role==='admin';};
+async function circuit(type,o,p){
+  const V=(await sb.from('urb_validations').select('*').eq('objet_id',o.id).order('created_at',{ascending:true})).data||[];
+  const dernierSoumis=V.length?V[V.length-1]:null;
+  // la dernière soumission repart à zéro après un rejet : on n'affiche que la série en cours
+  let serie=[];for(const v of V){if(v.decision==='Rejeté'){serie=[];continue;}serie.push(v);}
+  if(o.statut==='Rejeté'){const r=[...V].reverse().find(v=>v.decision==='Rejeté');serie=r?[r]:[];}
+  const att=NIV_ATTENDU[o.statut];
+  const etapes=[1,2,3].map(n=>{const v=serie.find(x=>x.niveau===n),vid=validateurDe(p,n);
+    const etat=v?(v.decision==='Validé'?`<b style="color:#3F8A1E">✓ Validé</b> le ${dfr(v.created_at)} par ${esc(nomMembre(v.par)||'—')}`:`<b style="color:#B42318">✗ Rejeté</b> le ${dfr(v.created_at)} : ${esc(v.commentaire||'')}`):(att===n?'<b style="color:#B45309">En attente</b>':'<span class="note">—</span>');
+    return `<div style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:10px;padding:10px;${att===n?'border-color:#F3C98B;background:#FFFBF3':''}"><div style="font-size:12.5px;color:var(--grey);font-weight:600">${esc(NIVEAU_NOMS[n-1])}</div>
+      <div style="font-weight:700;color:var(--navy);margin:2px 0">${esc(vid?nomMembre(vid):'Administrateur de l’espace')}</div><div style="font-size:13.5px">${etat}</div></div>`;}).join('');
+  const peut=att&&peutValider(p,att,o.created_by);
+  return `<section class="carte"><div class="tete s"><h2>Circuit de validation ${pastilleVal(o.statut)}</h2><div class="actions">
+    ${['Brouillon','Rejeté'].includes(o.statut||'Brouillon')&&o.created_by===USER.id?`<button class="btn p" onclick="soumettre('${type}','${o.id}')">Soumettre à validation</button>`:''}
+    ${peut?`<button class="btn g" onclick="decider('${type}','${o.id}','Validé')">Valider (niveau ${att})</button><button class="btn" onclick="decider('${type}','${o.id}','Rejeté')">Rejeter</button>`:''}</div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${etapes}</div>
+    ${V.length>serie.length?`<details style="margin-top:8px"><summary class="note">Historique complet (${V.length})</summary><ul class="liste-simple">${V.map(v=>`<li><span>Niveau ${v.niveau} — ${esc(v.decision)}${v.commentaire?' : '+esc(v.commentaire):''}</span><span class="note">${esc(nomMembre(v.par))} · ${dfr(v.created_at)}</span></li>`).join('')}</ul></details>`:''}</section>`;
+}
+const TABLE_DE={journal:'urb_journal',rapport:'urb_rapports'};
+async function soumettre(type,id){
+  const{error}=await sb.from(TABLE_DE[type]).update({statut:'Soumis',updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Soumission impossible : '+error.message);return;}journal('soumission_'+type);toast('Soumis à validation');delete CACHE[TABLE_DE[type]];route();
+}
+async function decider(type,id,decision){
+  let commentaire=null;if(decision==='Rejeté'){commentaire=prompt('Motif du rejet (transmis à l’auteur) :');if(!commentaire)return;}
+  else{commentaire=prompt('Commentaire (facultatif) :','')||null;}
+  const{error}=await sb.from('urb_validations').insert({tenant_id:ESP.tenant_id,objet_type:type,objet_id:id,decision,commentaire});
+  if(error){toast(error.message.replace(/^.*?:\s(?=[A-ZÉ])/,''),7000);return;}
+  journal('validation_'+type);toast(decision==='Validé'?'Validation enregistrée':'Rejet enregistré');delete CACHE[TABLE_DE[type]];delete CACHE.urb_jalons;delete CACHE.urb_projets;route();
+}
+
+// ── Indicateurs d'un projet ──
+async function indicateurs(p){
+  const[J,D,R]=await Promise.all([sb.from('urb_jalons').select('*').eq('projet_id',p.id),sb.from('urb_depenses').select('montant,type,date').eq('projet_id',p.id),sb.from('urb_risques').select('*').eq('projet_id',p.id)]).then(x=>x.map(y=>y.data||[]));
+  const pw=J.reduce((a,j)=>a+(num(j.poids)||1),0),phys=pw?Math.round(J.reduce((a,j)=>a+num(j.avancement)*(num(j.poids)||1),0)/pw):num(p.avancement);
+  const paye=D.filter(d=>d.type==='Paiement').reduce((a,d)=>a+num(d.montant),0),fin=p.budget?Math.round(100*paye/num(p.budget)):0;
+  let delai=null;if(p.date_debut&&p.date_fin_prevue){const t=jours(p.date_debut,p.date_fin_prevue);delai=t>0?Math.max(0,Math.min(100,Math.round(100*jours(p.date_debut,auj())/t))):null;}
+  const crit=R.filter(r=>r.statut!=='Clos'&&crit3(r)>=6);
+  return{J,D,R,phys,fin,paye,delai,ecart:delai==null?null:phys-delai,crit};
+}
+const NIV3={'Faible':1,'Moyenne':2,'Élevée':3};const crit3=r=>(NIV3[r.probabilite]||NIV3[r.gravite]||1)*(NIV3[r.impact]||NIV3[r.gravite]||1);
+function gantt(p,J){
+  const L=J.filter(j=>j.date_prevue).sort((a,b)=>String(a.date_debut||a.date_prevue).localeCompare(String(b.date_debut||b.date_prevue)));
+  if(!L.length)return '<p class="note">Ajoutez des jalons avec leurs dates pour afficher le planning.</p>';
+  const d0=[p.date_debut,...L.map(j=>j.date_debut||j.date_prevue)].filter(Boolean).sort()[0],d1=[p.date_fin_prevue,...L.map(j=>j.date_prevue)].filter(Boolean).sort().pop();
+  const tot=Math.max(1,jours(d0,d1)),pos=d=>Math.max(0,Math.min(100,100*jours(d0,d)/tot)),aj=pos(auj());
+  return `<div style="position:relative">${L.map(j=>{const a=pos(j.date_debut||j.date_prevue),b=pos(j.date_prevue),w=Math.max(1.5,b-a),ret=j.statut!=='Atteint'&&j.date_prevue<auj();
+    return `<div style="display:grid;grid-template-columns:minmax(120px,220px) 1fr 46px;gap:10px;align-items:center;margin:7px 0;font-size:14px"><a href="#fiche/urb_jalons/${j.id}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(j.libelle)}</a>
+      <div style="position:relative;height:16px;background:#F1F4FA;border-radius:4px"><div title="${dfr(j.date_debut||j.date_prevue)} → ${dfr(j.date_prevue)}" style="position:absolute;left:${a}%;width:${w}%;top:0;bottom:0;background:${ret?'#F7C9C5':'#C9DAF2'};border-radius:4px"></div>
+      <div style="position:absolute;left:${a}%;width:${w*num(j.avancement)/100}%;top:0;bottom:0;background:${j.statut==='Atteint'?'#3F8A1E':ret?'#B42318':'#1565C0'};border-radius:4px"></div>
+      <div style="position:absolute;left:${aj}%;top:-4px;bottom:-4px;width:2px;background:#0A2A66"></div></div><span class="note" style="text-align:right">${num(j.avancement)} %</span></div>`;}).join('')}
+    <p class="note">Barre claire : période prévue · barre foncée : avancement validé · trait : aujourd’hui (${dfr(auj())}) · ${dfr(d0)} → ${dfr(d1)}</p></div>`;
+}
+function matriceRisques(R){
+  const o=R.filter(r=>r.statut!=='Clos'),c=(pi,im)=>o.filter(r=>(NIV3[r.probabilite]||NIV3[r.gravite]||1)===pi&&(NIV3[r.impact]||NIV3[r.gravite]||1)===im).length;
+  const coul=v=>v>=6?'#F7C9C5':v>=3?'#FCE3BE':'#D8EED0';
+  return `<table style="width:auto;border-collapse:separate;border-spacing:4px"><tr><td></td>${['Faible','Moyen','Élevé'].map(x=>`<th style="text-align:center;font-size:12px">Impact ${x.toLowerCase()}</th>`).join('')}</tr>
+    ${[3,2,1].map(pi=>`<tr><th style="font-size:12px">Probabilité ${['','faible','moyenne','élevée'][pi]}</th>${[1,2,3].map(im=>`<td style="width:86px;height:46px;text-align:center;background:${coul(pi*im)};border-radius:6px;font-family:Montserrat;font-weight:800;color:var(--navy)">${c(pi,im)||''}</td>`).join('')}</tr>`).join('')}</table>`;
+}
+
 const APP={k:'urbain',nom:'Suivi des projets urbains',
- vues:[{k:'carte',l:'Carte des projets',i:'M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',rendu:async()=>`<div class="tete"><div><h1>Carte des projets</h1><p class="note">Cliquez sur un projet pour ouvrir sa fiche. Les projets sans coordonnées n’apparaissent pas.</p></div></div><div id="carte" class="carte" style="height:68vh;padding:0"></div><div id="legende" class="note"></div>`,apres:()=>dessinerCarte('carte')}],
+ vues:[
+  {k:'journal',l:'Journal de chantier',i:'M8 7V3M16 7V3M4 11h16M5 5h14v15H5zM8 15h5',rendu:()=>vueJournal()},
+  {k:'avalider',l:'À valider',i:'M9 11l3 3 8-8M20 12v7H4V5h11',rendu:()=>vueAValider()},
+  {k:'carte',l:'Carte des projets',i:'M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',rendu:async()=>`<div class="tete"><div><h1>Carte des projets</h1><p class="note">Cliquez sur un projet pour ouvrir sa fiche. Les projets sans coordonnées n’apparaissent pas.</p></div></div><div id="carte" class="carte" style="height:68vh;padding:0"></div><div id="legende" class="note"></div>`,apres:()=>dessinerCarte('carte')},
+  {k:'rapport',l:'Rapport',cache:1,rendu:()=>vueRapport()}],
+ sqlSupplement:'',
  entites:[
   {k:'urb_projets',nom:'Projets',un:'un projet',i:'M4 20V9l8-5 8 5v11M9 20v-6h6v6',tri:'created_at desc',titre:r=>r.nom,
-   champs:[{k:'nom',l:'Nom du projet',req:1,liste:1,large:1},{k:'commune',l:'Commune',liste:1,filtre:0},{k:'quartier',l:'Quartier'},
+   champs:[{k:'nom',l:'Nom du projet',req:1,liste:1,large:1},{k:'commune',l:'Commune',liste:1},{k:'quartier',l:'Quartier'},
     {k:'secteur',l:'Secteur',t:'select',opts:['Voirie','Assainissement','Eau potable','Électricité et éclairage','Équipement public','Marché','École','Santé','Habitat','Espaces verts','Autre'],liste:1,filtre:1},
     {k:'statut',l:'Phase',t:'select',opts:URB_STATUTS,liste:1,filtre:1,def:'Identification'},
     {k:'maitre_ouvrage',l:'Maître d’ouvrage'},{k:'maitre_oeuvre',l:'Maître d’œuvre'},{k:'entreprise',l:'Entreprise titulaire'},{k:'financement',l:'Source de financement'},
+    {k:'chef_projet',l:'Chef de projet',aide:'Nom affiché sur les rapports (ex. Awa KONE, PMP)'},{k:'bailleur',l:'Bailleur'},
     {k:'budget',l:'Budget',t:'money',liste:1},{k:'date_debut',l:'Début',t:'date'},{k:'date_fin_prevue',l:'Fin prévue',t:'date',liste:1},
-    {k:'avancement',l:'Avancement physique',t:'pct',liste:1,def:0},{k:'position',l:'Localisation',t:'geo'},
+    {k:'avancement',l:'Avancement physique (validé)',t:'pct',liste:1,def:0,auto:1},{k:'position',l:'Localisation',t:'geo'},
+    {k:'validateur_1',l:'Validateur niveau 1 (conducteur / chef d’équipe)',t:'membre'},{k:'validateur_2',l:'Validateur niveau 2 (chef de projet)',t:'membre'},
+    {k:'validateur_3',l:'Validateur niveau 3 (maître d’ouvrage / bailleur)',t:'membre',aide:'Sans validateur désigné, l’administrateur de l’espace valide ce niveau.'},
     {k:'description',l:'Description',t:'textarea'}],
-   actions:r=>`<button class="btn" onclick="rapportProjet('${r.id}')">Rapport imprimable</button>`,
-   avantFiche:async r=>{const dep=await sb.from('urb_depenses').select('montant,type').eq('projet_id',r.id);const paye=(dep.data||[]).filter(d=>d.type==='Paiement').reduce((a,d)=>a+num(d.montant),0);
-     const fin=r.budget?Math.round(100*paye/num(r.budget)):0,ret=r.date_fin_prevue&&r.statut!=='Réceptionné'&&r.date_fin_prevue<auj();
-     return `<div class="kpis">${kpi('Avancement physique',num(r.avancement)+' %')}${kpi('Avancement financier',fin+' %',fcfa(paye)+' payés')}${kpi('Budget',fcfa(r.budget))}${kpi('Échéance',r.date_fin_prevue?dfr(r.date_fin_prevue):'—',ret?'en retard de '+jours(r.date_fin_prevue,auj())+' jours':'',ret?'alerte':'')}</div>`;}},
+   actions:r=>`<button class="btn p" onclick="URB.jProjet='${r.id}';location.hash='#journal'">Journal de chantier</button><button class="btn" onclick="nouveauRapport('${r.id}')">Rapport hebdomadaire</button><button class="btn" onclick="rapportProjet('${r.id}')">Fiche imprimable</button>`,
+   avantFiche:async r=>{const I=await indicateurs(r);const att=((await sb.from('urb_journal').select('id,statut').eq('projet_id',r.id)).data||[]).filter(x=>NIV_ATTENDU[x.statut]).length;
+     const D7=(await sb.from('urb_journal').select('*').eq('projet_id',r.id).order('date',{ascending:false}).limit(6)).data||[],JL=I.J;
+     return `<div class="kpis">${kpi('Avancement physique validé',I.phys+' %','pondéré par jalon')}${kpi('Avancement financier',I.fin+' %',fcfa(I.paye)+' payés')}${kpi('Délai consommé',I.delai==null?'—':I.delai+' %',r.date_fin_prevue?'fin prévue '+dfr(r.date_fin_prevue):'')}
+       ${kpi('Écart avancement / délai',I.ecart==null?'—':(I.ecart>0?'+':'')+I.ecart+' pts',I.ecart==null?'':I.ecart<-10?'retard significatif':I.ecart<0?'léger retard':'dans les temps',I.ecart!=null&&I.ecart<-10?'alerte':I.ecart!=null&&I.ecart>=0?'ok':'')}
+       ${kpi('Risques critiques',I.crit.length,'',I.crit.length?'alerte':'ok')}${kpi('Saisies à valider',att,'',att?'alerte':'')}</div>
+      <section class="carte"><div class="tete s"><h2>Planning des jalons</h2><button class="btn s" onclick="formulaire('urb_jalons',null,{projet_id:'${r.id}'})">Ajouter un jalon</button></div>${gantt(r,JL)}</section>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px"><section class="carte"><h2>Matrice des risques ouverts</h2><div style="margin-top:10px;overflow-x:auto">${matriceRisques(I.R)}</div></section>
+      <section class="carte"><div class="tete s"><h2>Dernières saisies du journal</h2><button class="btn s" onclick="URB.jProjet='${r.id}';location.hash='#journal'">Ouvrir le journal</button></div>${D7.length?`<ul class="liste-simple">${D7.map(x=>`<li><a href="#fiche/urb_journal/${x.id}">${dfr(x.date)} — ${esc(JL.find(j=>j.id===x.jalon_id)?.libelle||'')}</a>${pastilleVal(x.statut)}</li>`).join('')}</ul>`:'<p class="note">Aucune saisie.</p>'}</section></div>`;}},
   {k:'urb_jalons',nom:'Jalons',un:'un jalon',cache:1,tri:'date_prevue asc',titre:r=>r.libelle,
-   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1},{k:'libelle',l:'Jalon',req:1,liste:1},{k:'date_prevue',l:'Date prévue',t:'date',liste:1},{k:'date_reelle',l:'Date réelle',t:'date',liste:1},{k:'statut',l:'Statut',t:'select',opts:['À venir','Atteint','En retard'],liste:1,def:'À venir'}]},
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1},{k:'libelle',l:'Jalon',req:1,liste:1,large:1},{k:'date_debut',l:'Début prévu',t:'date',liste:1},{k:'date_prevue',l:'Fin prévue',t:'date',liste:1},
+    {k:'date_reelle',l:'Atteint le',t:'date',liste:1,auto:1},{k:'poids',l:'Poids dans le projet',t:'number',def:1,aide:'Importance relative pour le calcul de l’avancement global'},{k:'responsable',l:'Responsable'},
+    {k:'livrable',l:'Livrable attendu',large:1},{k:'avancement',l:'Avancement validé',t:'pct',liste:1,auto:1,def:0},{k:'statut',l:'Statut',t:'select',opts:['À venir','En cours','Atteint','En retard'],liste:1,def:'À venir',auto:1}],
+   avantFiche:async r=>{const L=(await sb.from('urb_journal').select('*').eq('jalon_id',r.id).order('date',{ascending:false})).data||[];
+     return `<div class="kpis">${kpi('Avancement validé',num(r.avancement)+' %')}${kpi('Statut',esc(r.statut||'À venir'))}${kpi('Fin prévue',dfr(r.date_prevue)||'—',r.date_reelle?'atteint le '+dfr(r.date_reelle):'')}</div>
+      <section class="carte"><h2>Suivi jour par jour</h2>${L.length?`<div class="tab" style="margin-top:8px"><table><thead><tr><th>Date</th><th>Réalisé</th><th>Reste à faire</th><th>Avancement</th><th>Statut</th></tr></thead><tbody>${L.map(x=>`<tr tabindex="0" onclick="location.hash='#fiche/urb_journal/${x.id}'"><td>${dfr(x.date)}</td><td>${esc(x.realise||'')}</td><td>${esc(x.reste_a_faire||'')}</td><td>${x.avancement_jalon??''} %</td><td>${pastilleVal(x.statut)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="note">Aucune saisie pour ce jalon.</p>'}</section>`;}},
+  {k:'urb_journal',nom:'Journal de chantier',un:'une saisie',cache:1,tri:'date desc',titre:r=>'Journal du '+dfr(r.date),
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'jalon_id',l:'Jalon',t:'ref',ref:'urb_jalons',liste:1},{k:'date',l:'Date',t:'date',req:1,liste:1,def:auj},
+    {k:'a_faire',l:'Ce que je dois faire',t:'textarea'},{k:'realise',l:'Ce que j’ai fait',t:'textarea'},{k:'reste_a_faire',l:'Ce qu’il me reste à faire',t:'textarea'},
+    {k:'avancement_jalon',l:'Avancement du jalon déclaré',t:'pct',liste:1},{k:'effectif',l:'Personnes sur le chantier',t:'number'},{k:'meteo',l:'Conditions',t:'select',opts:['Normales','Pluie','Forte pluie','Chaleur','Arrêt de chantier']},
+    {k:'statut',l:'Statut',t:'select',opts:VAL_ST,liste:1,auto:1,def:'Brouillon'}],
+   avantFiche:async r=>{const p=(await sb.from('urb_projets').select('*').eq('id',r.projet_id).single()).data;return (await galerie(r.id))+(await circuit('journal',r,p));}},
+  {k:'urb_photos',nom:'Photos',un:'une photo',cache:1,tri:'date desc',titre:r=>r.legende||'Photo',
+   champs:[{k:'journal_id',l:'Saisie',t:'ref',ref:'urb_journal',parent:1,req:1},{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets'},{k:'date',l:'Date',t:'date',def:auj},{k:'photo',l:'Photo',t:'file',accept:'image/*',capture:1,req:1},{k:'legende',l:'Légende',liste:1},{k:'position',l:'Position',t:'geo'}]},
+  {k:'urb_validations',nom:'Validations',un:'une validation',cache:1,tri:'created_at desc',titre:r=>r.decision,
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets'},{k:'objet_type',l:'Type',t:'select',opts:['journal','rapport'],req:1},{k:'objet_id',l:'Élément',sql:'uuid',req:1},{k:'niveau',l:'Niveau',t:'number'},
+    {k:'decision',l:'Décision',t:'select',opts:['Validé','Rejeté'],req:1,liste:1},{k:'commentaire',l:'Commentaire',liste:1},{k:'par',l:'Par',t:'membre',liste:1}]},
+  {k:'urb_rapports',nom:'Rapports hebdomadaires',un:'un rapport',i:'M6 3h8l4 4v14H6zM9 12h6M9 16h6',tri:'semaine_du desc',titre:r=>'Semaine du '+dfr(r.semaine_du)+' au '+dfr(r.semaine_au),
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'semaine_du',l:'Semaine du',t:'date',req:1,liste:1},{k:'semaine_au',l:'Au',t:'date',req:1,liste:1},
+    {k:'chef_projet',l:'Chef de projet'},{k:'bailleur',l:'Bailleur'},{k:'resume',l:'Résumé exécutif',t:'textarea',cache:1},
+    {k:'activites',l:'Activités',auto:1,cache:1,sql:'jsonb'},{k:'kpi',l:'Indicateurs',auto:1,cache:1,sql:'jsonb'},{k:'risques',l:'Risques',auto:1,cache:1,sql:'jsonb'},
+    {k:'plan',l:'Plan',auto:1,cache:1,sql:'jsonb'},{k:'besoins',l:'Besoins',auto:1,cache:1,sql:'jsonb'},{k:'photos',l:'Photos',auto:1,cache:1,sql:'jsonb'},
+    {k:'statut',l:'Statut',t:'select',opts:VAL_ST,liste:1,auto:1,def:'Brouillon'}],
+   avantEnregistrer:async(o,id)=>{if(!id){const p=(await sb.from('urb_projets').select('chef_projet,bailleur').eq('id',o.projet_id).single()).data||{};o.chef_projet=o.chef_projet||p.chef_projet||null;o.bailleur=o.bailleur||p.bailleur||p.financement||null;}},
+   apresEnregistrer:async(r,nouveau)=>{if(nouveau){FORM.retour=1;location.hash='#rapport/'+r.id;}},
+   actions:r=>`<button class="btn p" onclick="location.hash='#rapport/${r.id}'">Ouvrir le rapport</button><button class="btn" onclick="rapportPDF('${r.id}')">PDF</button>`,
+   avantFiche:async r=>{const p=(await sb.from('urb_projets').select('*').eq('id',r.projet_id).single()).data;return circuit('rapport',r,p);}},
   {k:'urb_depenses',nom:'Dépenses',un:'une dépense',cache:1,tri:'date asc',titre:r=>r.libelle,
    champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'libelle',l:'Libellé',req:1,liste:1},{k:'type',l:'Type',t:'select',opts:['Engagement','Paiement'],liste:1,def:'Paiement'},{k:'montant',l:'Montant',t:'money',req:1,liste:1},{k:'piece',l:'Pièce justificative',t:'file'}]},
   {k:'urb_visites',nom:'Visites de chantier',un:'une visite',i:'M3 7h4l2-3h6l2 3h4v13H3zM12 17a4 4 0 100-8 4 4 0 000 8',tri:'date desc',titre:r=>'Visite du '+dfr(r.date),
    champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'date',l:'Date',t:'date',liste:1,def:auj},{k:'auteur',l:'Visite effectuée par',liste:1},{k:'avancement_constate',l:'Avancement constaté',t:'pct',liste:1},
     {k:'photo',l:'Photo',t:'file',accept:'image/*',capture:1},{k:'position',l:'Position de la photo',t:'geo'},{k:'constats',l:'Constats',t:'textarea'},{k:'recommandations',l:'Recommandations',t:'textarea'}],
-   apresEnregistrer:async(v)=>{if(v.avancement_constate!=null){await sb.from('urb_projets').update({avancement:v.avancement_constate,updated_at:new Date().toISOString()}).eq('id',v.projet_id);delete CACHE.urb_projets;}},
    avantFiche:async r=>r.photo?`<section class="carte"><img alt="Photo de la visite" style="max-width:100%;max-height:420px;border-radius:8px" src="${await urlFichier(r.photo)}"><p class="note">${r.position_lat!=null?'Prise à '+num(r.position_lat).toFixed(5)+', '+num(r.position_lng).toFixed(5)+' — ':''}${dlong(r.date)}</p></section>`:''},
   {k:'urb_risques',nom:'Risques et problèmes',un:'un risque',i:'M12 3l9 16H3zM12 10v4M12 17h.01',tri:'created_at desc',titre:r=>r.description,
-   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'description',l:'Description',req:1,liste:1,large:1},{k:'gravite',l:'Gravité',t:'select',opts:['Faible','Moyenne','Élevée'],liste:1,filtre:1},
-    {k:'responsable',l:'Responsable',liste:1},{k:'echeance',l:'Échéance',t:'date',liste:1},{k:'statut',l:'Statut',t:'select',opts:['Ouvert','En traitement','Clos'],liste:1,filtre:1,def:'Ouvert'},{k:'mesures',l:'Mesures prises',t:'textarea'}]}],
+   champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'description',l:'Description',req:1,liste:1,large:1},
+    {k:'probabilite',l:'Probabilité',t:'select',opts:['Faible','Moyenne','Élevée'],liste:1},{k:'impact',l:'Impact',t:'select',opts:['Faible','Moyenne','Élevée'],liste:1},
+    {k:'gravite',l:'Gravité (ancien champ)',t:'select',opts:['Faible','Moyenne','Élevée'],cache:1},
+    {k:'responsable',l:'Responsable',liste:1},{k:'echeance',l:'Échéance',t:'date',liste:1},{k:'statut',l:'Statut',t:'select',opts:['Ouvert','En traitement','Clos'],liste:1,filtre:1,def:'Ouvert'},{k:'mesures',l:'Mesures / solutions',t:'textarea'}]}],
+ voirEnfant:k=>!['urb_validations','urb_photos','urb_journal','urb_jalons'].includes(k),
  accueil:async()=>{
-  const P=await charger('urb_projets'),R=(await sb.from('urb_risques').select('gravite,statut').eq('tenant_id',ESP.tenant_id)).data||[];
+  const P=await charger('urb_projets'),R=(await sb.from('urb_risques').select('*').eq('tenant_id',ESP.tenant_id)).data||[];
   const D=(await sb.from('urb_depenses').select('montant,type').eq('tenant_id',ESP.tenant_id)).data||[];
+  const JN=(await sb.from('urb_journal').select('id,statut,projet_id,created_by').eq('tenant_id',ESP.tenant_id)).data||[];
+  const aMoi=JN.filter(x=>{const p=P.find(q=>q.id===x.projet_id);return peutValider(p,NIV_ATTENDU[x.statut],x.created_by);}).length;
   const budget=P.reduce((a,p)=>a+num(p.budget),0),paye=D.filter(d=>d.type==='Paiement').reduce((a,d)=>a+num(d.montant),0);
   const retard=P.filter(p=>p.date_fin_prevue&&p.statut!=='Réceptionné'&&p.date_fin_prevue<auj());
   const moy=P.length?Math.round(P.reduce((a,p)=>a+num(p.avancement),0)/P.length):0;
-  const parPhase=URB_STATUTS.map(s=>[s,P.filter(p=>p.statut===s).length]);
-  return `<div class="tete"><div><h1>Tableau de bord</h1><p class="note">${P.length} projet${P.length>1?'s':''} suivi${P.length>1?'s':''}</p></div><button class="btn p" onclick="formulaire('urb_projets')">Ajouter un projet</button></div>
-   <div class="kpis">${kpi('Budget total',fcfa(budget))}${kpi('Consommé',budget?Math.round(100*paye/budget)+' %':'—',fcfa(paye)+' payés')}${kpi('Avancement moyen',moy+' %')}${kpi('Projets en retard',retard.length,'',retard.length?'alerte':'ok')}${kpi('Risques élevés ouverts',R.filter(r=>r.gravite==='Élevée'&&r.statut!=='Clos').length,'',R.some(r=>r.gravite==='Élevée'&&r.statut!=='Clos')?'alerte':'')}</div>
-   <section class="carte"><h2>Projets par phase</h2><div style="margin-top:12px">${parPhase.map(([s,n])=>`<div style="display:grid;grid-template-columns:190px 1fr 40px;gap:10px;align-items:center;margin:6px 0"><span>${esc(s)}</span><span style="height:12px;border-radius:6px;background:#E3EAF6;position:relative;overflow:hidden"><i style="position:absolute;inset:0 auto 0 0;width:${P.length?100*n/P.length:0}%;background:${URB_COUL[s]}"></i></span><b>${n}</b></div>`).join('')}</div></section>
-   <section class="carte"><h2>Projets en retard</h2>${retard.length?`<ul class="liste-simple" style="margin-top:8px">${retard.map(p=>`<li><a href="#fiche/urb_projets/${p.id}">${esc(p.nom)}</a><span class="note">fin prévue le ${dfr(p.date_fin_prevue)} · ${num(p.avancement)} %</span></li>`).join('')}</ul>`:'<p class="note">Aucun projet en retard.</p>'}</section>
-   <div id="mini" class="carte" style="height:340px;padding:0"></div>`;},
+  return `<div class="tete"><div><h1>Tableau de bord</h1><p class="note">${P.length} projet${P.length>1?'s':''} suivi${P.length>1?'s':''}</p></div><div class="actions"><button class="btn" onclick="location.hash='#journal'">Saisir le journal du jour</button><button class="btn p" onclick="formulaire('urb_projets')">Ajouter un projet</button></div></div>
+   <div class="kpis">${kpi('Budget total',fcfa(budget))}${kpi('Consommé',budget?Math.round(100*paye/budget)+' %':'—',fcfa(paye)+' payés')}${kpi('Avancement moyen validé',moy+' %')}${kpi('Projets en retard',retard.length,'',retard.length?'alerte':'ok')}
+   ${kpi('Risques critiques ouverts',R.filter(r=>r.statut!=='Clos'&&crit3(r)>=6).length,'',R.some(r=>r.statut!=='Clos'&&crit3(r)>=6)?'alerte':'')}${kpi('À valider par vous',aMoi,'',aMoi?'alerte':'')}</div>
+   <section class="carte"><h2>Projets</h2>${P.length?`<div class="tab" style="margin-top:8px"><table><thead><tr><th>Projet</th><th>Phase</th><th>Avancement validé</th><th>Fin prévue</th></tr></thead><tbody>${P.map(p=>`<tr tabindex="0" onclick="location.hash='#fiche/urb_projets/${p.id}'"><td><b>${esc(p.nom)}</b><br><span class="note">${esc(p.commune||'')}</span></td><td><span class="pastille" style="color:${URB_COUL[p.statut]||'#0A2A66'}">${esc(p.statut||'')}</span></td><td><span class="barre-pct"><i style="width:${num(p.avancement)}%"></i></span> ${num(p.avancement)} %</td><td>${dfr(p.date_fin_prevue)}${retard.includes(p)?' <span class="pastille" style="color:#B42318">en retard</span>':''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="note">Aucun projet : commencez par en ajouter un.</p>'}</section>
+   <div id="mini" class="carte" style="height:320px;padding:0"></div>`;},
  apresAccueil:()=>dessinerCarte('mini')
 };
-// Carte (Leaflet + OpenStreetMap)
+
+// ── Journal de chantier : saisie du jour, jalon par jalon ──
+async function vueJournal(){
+  const P=await charger('urb_projets');if(!P.length)return `<div class="carte"><h2>Journal de chantier</h2><p class="note">Créez d’abord un projet et ses jalons.</p></div>`;
+  if(!URB.jProjet||!P.some(p=>p.id===URB.jProjet))URB.jProjet=P[0].id;if(!URB.jDate)URB.jDate=auj();
+  const p=P.find(x=>x.id===URB.jProjet);
+  const J=((await sb.from('urb_jalons').select('*').eq('projet_id',p.id)).data||[]).sort((a,b)=>String(a.date_prevue||'9').localeCompare(String(b.date_prevue||'9')));
+  const S=(await sb.from('urb_journal').select('*').eq('projet_id',p.id).eq('date',URB.jDate)).data||[];
+  const H=(await sb.from('urb_journal').select('*').eq('projet_id',p.id).order('date',{ascending:false}).limit(12)).data||[];
+  const cartes=await Promise.all(J.map(async j=>{
+    const s=S.find(x=>x.jalon_id===j.id),edit=!s||['Brouillon','Rejeté'].includes(s.statut),id='j_'+j.id;
+    const ph=s?((await sb.from('urb_photos').select('*').eq('journal_id',s.id)).data||[]):[];
+    const vign=(await Promise.all(ph.map(async f=>`<img alt="${esc(f.legende||'Photo')}" src="${await urlFichier(f.photo)}" style="width:86px;height:64px;object-fit:cover;border-radius:6px">`))).join('');
+    const atteint=j.statut==='Atteint';
+    return `<section class="carte" id="${id}" style="${atteint&&!s?'opacity:.7':''}"><div class="tete s"><div><h2>${esc(j.libelle)}</h2><p class="note">${j.date_debut?dfr(j.date_debut)+' → ':''}${dfr(j.date_prevue)||'sans date'} · ${esc(j.responsable||'')} · validé : ${num(j.avancement)} %</p></div><div>${s?pastilleVal(s.statut):atteint?'<span class="pastille" style="color:#3F8A1E">Jalon atteint</span>':'<span class="note">Pas encore de saisie aujourd’hui</span>'}</div></div>
+     ${s?.statut==='Rejeté'?`<p style="color:#B42318;margin:0 0 8px">Saisie rejetée : corrigez puis soumettez de nouveau (voir le motif dans la fiche).</p>`:''}
+     ${edit?`<div class="form"><div><label class="f" for="${id}_af">Ce que je dois faire</label><textarea class="in" rows="3" id="${id}_af">${esc(s?.a_faire||'')}</textarea></div>
+       <div><label class="f" for="${id}_re">Ce que j’ai fait</label><textarea class="in" rows="3" id="${id}_re">${esc(s?.realise||'')}</textarea></div>
+       <div><label class="f" for="${id}_ra">Ce qu’il me reste à faire</label><textarea class="in" rows="3" id="${id}_ra">${esc(s?.reste_a_faire||'')}</textarea></div>
+       <div><label class="f" for="${id}_av">Avancement du jalon (%)</label><input class="in" type="number" min="0" max="100" id="${id}_av" value="${esc(s?.avancement_jalon??j.avancement??0)}">
+        <label class="f" for="${id}_ef" style="margin-top:8px">Personnes sur le chantier</label><input class="in" type="number" min="0" id="${id}_ef" value="${esc(s?.effectif??'')}"></div>
+       <div class="large"><label class="f" for="${id}_ph">Photos d’avancement et des travaux réalisés</label><input class="in" type="file" accept="image/*" multiple id="${id}_ph"><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${vign}</div></div></div>
+       <div class="actions" style="margin-top:10px"><button class="btn" onclick="sauverJournal('${j.id}',false)">Enregistrer</button><button class="btn p" onclick="sauverJournal('${j.id}',true)">Enregistrer et soumettre à validation</button>${s?`<a class="btn" href="#fiche/urb_journal/${s.id}">Voir la fiche</a>`:''}</div>`
+     :`<dl class="champs"><div class="champ"><dt>Ce que je dois faire</dt><dd>${esc(s.a_faire||'—')}</dd></div><div class="champ"><dt>Ce que j’ai fait</dt><dd>${esc(s.realise||'—')}</dd></div><div class="champ"><dt>Ce qu’il me reste à faire</dt><dd>${esc(s.reste_a_faire||'—')}</dd></div><div class="champ"><dt>Avancement déclaré</dt><dd>${s.avancement_jalon??''} % · ${s.effectif??'—'} personnes</dd></div></dl>
+       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${vign}</div><p style="margin:10px 0 0"><a class="btn s" href="#fiche/urb_journal/${s.id}">Voir le circuit de validation</a></p>`}</section>`;}));
+  return `<div class="tete"><div><h1>Journal de chantier</h1><p class="note">Une saisie par jalon et par jour. L’avancement d’un jalon ne compte qu’après validation aux trois niveaux.</p></div></div>
+   <div class="outils"><select class="in" onchange="URB.jProjet=this.value;route()" aria-label="Projet">${P.map(x=>`<option value="${x.id}" ${x.id===p.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</select>
+    <input class="in" type="date" value="${URB.jDate}" max="${auj()}" onchange="URB.jDate=this.value;route()" aria-label="Date"><button class="btn" onclick="formulaire('urb_jalons',null,{projet_id:'${p.id}'})">Ajouter un jalon</button></div>
+   ${J.length?cartes.join(''):'<div class="carte"><p class="note">Ce projet n’a pas encore de jalon : ajoutez-en pour commencer le suivi jour par jour.</p></div>'}
+   <section class="carte"><h2>Historique récent</h2>${H.length?`<div class="tab" style="margin-top:8px"><table><thead><tr><th>Date</th><th>Jalon</th><th>Réalisé</th><th>Statut</th></tr></thead><tbody>${H.map(x=>`<tr tabindex="0" onclick="location.hash='#fiche/urb_journal/${x.id}'"><td>${dfr(x.date)}</td><td>${esc(J.find(j=>j.id===x.jalon_id)?.libelle||'')}</td><td>${esc(String(x.realise||'').slice(0,90))}</td><td>${pastilleVal(x.statut)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="note">Aucune saisie.</p>'}</section>`;
+}
+async function sauverJournal(jalonId,soumettreAussi){
+  const id='j_'+jalonId,g=k=>document.getElementById(id+'_'+k);
+  const obj={projet_id:URB.jProjet,jalon_id:jalonId,date:URB.jDate,a_faire:g('af').value.trim()||null,realise:g('re').value.trim()||null,reste_a_faire:g('ra').value.trim()||null,
+    avancement_jalon:g('av').value===''?null:Math.max(0,Math.min(100,num(g('av').value))),effectif:g('ef').value===''?null:num(g('ef').value)};
+  if(!obj.realise&&!obj.a_faire){toast('Renseignez au moins ce que vous deviez faire ou ce que vous avez fait');return;}
+  try{
+    const ex=((await sb.from('urb_journal').select('id,statut').eq('jalon_id',jalonId).eq('date',URB.jDate)).data||[])[0];
+    const r=await enregistrer('urb_journal',ex?.id||null,obj);
+    const files=[...(g('ph').files||[])];let n=0;
+    for(const f of files){if(f.size>25*1024*1024){toast(f.name+' dépasse 25 Mo');continue;}
+      const chemin=`${ESP.tenant_id}/urb_photos/${crypto.randomUUID()}-${f.name.replace(/[^A-Za-z0-9._-]+/g,'_')}`;
+      const up=await sb.storage.from(BUCKET).upload(chemin,f,{contentType:f.type||'image/jpeg'});if(up.error){toast('Photo non envoyée : '+up.error.message);continue;}
+      const J=(await tous('urb_jalons')).find(x=>x.id===jalonId);
+      await sb.from('urb_photos').insert({tenant_id:ESP.tenant_id,journal_id:r.id,projet_id:URB.jProjet,date:URB.jDate,photo:chemin,photo_nom:f.name,legende:(J?.libelle||'')+' — '+dfr(URB.jDate)});n++;}
+    if(soumettreAussi){const{error}=await sb.from('urb_journal').update({statut:'Soumis'}).eq('id',r.id);if(error)throw new Error(error.message);}
+    toast((soumettreAussi?'Saisie soumise à validation':'Saisie enregistrée')+(n?' · '+n+' photo(s)':''));route();
+  }catch(e){toast(e.message);}
+}
+async function galerie(journalId){
+  const L=(await sb.from('urb_photos').select('*').eq('journal_id',journalId)).data||[];if(!L.length)return '';
+  return `<section class="carte"><h2>Photos (${L.length})</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:10px">${(await Promise.all(L.map(async f=>`<figure style="margin:0"><img alt="${esc(f.legende||'Photo')}" src="${await urlFichier(f.photo)}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="ouvrirFichier('${esc(f.photo)}')"><figcaption class="note">${esc(f.legende||'')}</figcaption></figure>`))).join('')}</div></section>`;
+}
+
+// ── À valider ──
+async function vueAValider(){
+  const P=await charger('urb_projets'),pp=id=>P.find(p=>p.id===id);
+  const[JN,RP]=await Promise.all([sb.from('urb_journal').select('*').eq('tenant_id',ESP.tenant_id).in('statut',['Soumis','Validé N1','Validé N2']).order('date',{ascending:true}).then(x=>x.data||[]),
+    sb.from('urb_rapports').select('*').eq('tenant_id',ESP.tenant_id).in('statut',['Soumis','Validé N1','Validé N2']).then(x=>x.data||[])]);
+  const JA=await tous('urb_jalons');
+  const mine=[...JN.map(x=>({t:'journal',o:x})),...RP.map(x=>({t:'rapport',o:x}))].filter(x=>peutValider(pp(x.o.projet_id),NIV_ATTENDU[x.o.statut],x.o.created_by));
+  const autres=[...JN.map(x=>({t:'journal',o:x})),...RP.map(x=>({t:'rapport',o:x}))].filter(x=>!mine.includes(x));
+  const carte=async x=>{const o=x.o,p=pp(o.projet_id),n=NIV_ATTENDU[o.statut];
+    const ph=x.t==='journal'?((await sb.from('urb_photos').select('*').eq('journal_id',o.id)).data||[]).slice(0,6):[];
+    return `<section class="carte"><div class="tete s"><div><h2>${x.t==='journal'?'Journal du '+dfr(o.date)+' — '+esc(JA.find(j=>j.id===o.jalon_id)?.libelle||''):'Rapport hebdomadaire — semaine du '+dfr(o.semaine_du)}</h2><p class="note">${esc(p?.nom||'')} · saisi par ${esc(nomMembre(o.created_by)||'—')} · attend le niveau ${n}</p></div>${pastilleVal(o.statut)}</div>
+     ${x.t==='journal'?`<dl class="champs"><div class="champ"><dt>Ce que je dois faire</dt><dd>${esc(o.a_faire||'—')}</dd></div><div class="champ"><dt>Ce que j’ai fait</dt><dd>${esc(o.realise||'—')}</dd></div><div class="champ"><dt>Reste à faire</dt><dd>${esc(o.reste_a_faire||'—')}</dd></div><div class="champ"><dt>Avancement déclaré</dt><dd>${o.avancement_jalon??''} %</dd></div></dl>
+       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${(await Promise.all(ph.map(async f=>`<img alt="" src="${await urlFichier(f.photo)}" style="width:110px;height:80px;object-fit:cover;border-radius:6px">`))).join('')}</div>`:`<p class="note">${esc(String(o.resume||'').slice(0,240))}</p>`}
+     <div class="actions" style="margin-top:10px">${mine.includes(x)?`<button class="btn g" onclick="decider('${x.t}','${o.id}','Validé')">Valider (niveau ${n})</button><button class="btn" onclick="decider('${x.t}','${o.id}','Rejeté')">Rejeter</button>`:''}<a class="btn" href="${x.t==='journal'?'#fiche/urb_journal/'+o.id:'#rapport/'+o.id}">Ouvrir</a>${x.t==='rapport'?`<button class="btn" onclick="rapportPDF('${o.id}')">PDF</button>`:''}</div></section>`;};
+  return `<div class="tete"><div><h1>À valider</h1><p class="note">Saisies du journal et rapports qui attendent votre validation. Le circuit compte trois niveaux successifs ; on ne valide jamais sa propre saisie.</p></div></div>
+   ${mine.length?(await Promise.all(mine.map(carte))).join(''):'<div class="carte"><p class="note">Rien n’attend votre validation.</p></div>'}
+   ${autres.length?`<section class="carte"><h2>En cours chez d’autres validateurs (${autres.length})</h2><ul class="liste-simple" style="margin-top:8px">${autres.map(x=>`<li><a href="${x.t==='journal'?'#fiche/urb_journal/'+x.o.id:'#rapport/'+x.o.id}">${x.t==='journal'?'Journal du '+dfr(x.o.date):'Rapport du '+dfr(x.o.semaine_du)} — ${esc(pp(x.o.projet_id)?.nom||'')}</a><span>${pastilleVal(x.o.statut)} <span class="note">niveau ${NIV_ATTENDU[x.o.statut]} : ${esc(nomMembre(validateurDe(pp(x.o.projet_id),NIV_ATTENDU[x.o.statut]))||'administrateur')}</span></span></li>`).join('')}</ul></section>`:''}`;
+}
+
+// ── Rapport hebdomadaire d'activités : saisie par onglets ──
+const R_ONGLETS=['Informations','1. Résumé exécutif','2. Activités prévues vs réalisées','3. Indicateurs clés (KPI)','4. Risques & solutions','5. Plan semaine prochaine','6. Besoins / demandes','7. Preuves terrain'];
+const R_TABLES={activites:[['activite','Activité / jalon',''],['prevu','Prévu',''],['realise','Réalisé',''],['taux','Taux %','n'],['commentaire','Commentaire / écart','']],
+  risques:[['risque','Risque / problème',''],['niveau','Niveau','s:Faible|Moyen|Élevé'],['solution','Solution / mesure',''],['responsable','Responsable',''],['echeance','Échéance','d']],
+  plan:[['activite','Activité prévue',''],['date','Date','d'],['responsable','Responsable','']],
+  besoins:[['besoin','Besoin / demande',''],['destinataire','Adressé à',''],['echeance','Échéance','d']],
+  kpi_autres:[['indicateur','Indicateur',''],['cible','Cible',''],['realise','Réalisé','']]};
+function nouveauRapport(projetId){const d=new Date(auj()+'T12:00:00');d.setDate(d.getDate()-((d.getDay()+6)%7));const du=d.toISOString().slice(0,10);d.setDate(d.getDate()+6);
+  formulaire('urb_rapports',null,{projet_id:projetId,semaine_du:du,semaine_au:d.toISOString().slice(0,10)});}
+async function vueRapport(){
+  const id=location.hash.split('/')[1];
+  if(!URB.rap||URB.rap.id!==id){const{data}=await sb.from('urb_rapports').select('*').eq('id',id).single();if(!data)return '<div class="carte">Rapport introuvable.</div>';URB.rap=data;URB.onglet=0;}
+  const r=URB.rap,p=(await sb.from('urb_projets').select('*').eq('id',r.projet_id).single()).data||{},lecture=!['Brouillon','Rejeté'].includes(r.statut||'Brouillon');
+  return `<p class="fil"><a href="#fiche/urb_projets/${p.id}">${esc(p.nom||'Projet')}</a> › <a href="#liste/urb_rapports">Rapports</a></p>
+   <div class="tete"><div><h1>Rapport hebdomadaire d’activités</h1><p class="note">Semaine du ${dfr(r.semaine_du)} au ${dfr(r.semaine_au)} · ${pastilleVal(r.statut)}${lecture?' · consultation seule (en validation ou validé)':''}</p></div>
+    <div class="actions">${lecture?'':`<button class="btn" onclick="preremplir()">Pré-remplir depuis le journal</button><button class="btn" onclick="sauverRapport()">Enregistrer</button>`}<button class="btn p" onclick="sauverRapport(true).then(()=>rapportPDF('${r.id}'))">Générer le PDF</button><a class="btn" href="#fiche/urb_rapports/${r.id}">Validation</a></div></div>
+   <div class="outils" role="tablist">${R_ONGLETS.map((o,i)=>`<button role="tab" aria-selected="${i===URB.onglet}" class="btn s ${i===URB.onglet?'p':''}" onclick="ongletRapport(${i})">${esc(o)}</button>`).join('')}</div>
+   <section class="carte" id="rapCorps">${await corpsOnglet(r,p,lecture)}</section>
+   <div class="actions"><button class="btn" ${URB.onglet===0?'disabled':''} onclick="ongletRapport(${URB.onglet-1})">← Précédent</button>${URB.onglet<7?`<button class="btn p" onclick="ongletRapport(${URB.onglet+1})">Suivant →</button>`:`<button class="btn p" onclick="sauverRapport(true).then(()=>rapportPDF('${r.id}'))">Générer le PDF</button>`}</div>`;
+}
+function editeurTable(cle,lecture){const cols=R_TABLES[cle],L=(cle==='kpi_autres'?(URB.rap.kpi?.autres||[]):(URB.rap[cle]||[]));
+  const cell=(c,v,i)=>{const[k,,t]=c;if(lecture)return esc(v??'');if(t==='d')return `<input class="in" type="date" data-r="${i}" data-k="${k}" value="${esc(v||'')}">`;
+    if(t==='n')return `<input class="in" type="number" min="0" max="100" data-r="${i}" data-k="${k}" value="${esc(v??'')}">`;
+    if(t.startsWith('s:'))return `<select class="in" data-r="${i}" data-k="${k}"><option></option>${t.slice(2).split('|').map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`;
+    return `<textarea class="in" rows="2" data-r="${i}" data-k="${k}">${esc(v||'')}</textarea>`;};
+  return `<div class="tab"><table id="tb_${cle}"><thead><tr>${cols.map(c=>`<th>${esc(c[1])}</th>`).join('')}${lecture?'':'<th></th>'}</tr></thead><tbody>${L.map((l,i)=>`<tr>${cols.map(c=>`<td>${cell(c,l[c[0]],i)}</td>`).join('')}${lecture?'':`<td><button class="btn s" aria-label="Retirer la ligne" onclick="ligneRapport('${cle}',${i})">×</button></td>`}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="vide">Aucune ligne.</td></tr>`}</tbody></table></div>
+   ${lecture?'':`<button class="btn s" style="margin-top:8px" onclick="ligneRapport('${cle}',-1)">Ajouter une ligne</button>`}`;}
+async function corpsOnglet(r,p,lecture){
+  const ro=lecture?'disabled':'',k=r.kpi||{};
+  switch(URB.onglet){
+    case 0:return `<h2>Informations générales</h2><div class="form" style="margin-top:10px"><div><label class="f">Projet</label><input class="in" value="${esc(p.nom||'')}" disabled></div>
+      <div><label class="f" for="r_cp">Chef de projet</label><input class="in" id="r_cp" ${ro} value="${esc(r.chef_projet||'')}"></div><div><label class="f" for="r_du">Semaine du</label><input class="in" type="date" id="r_du" ${ro} value="${esc(r.semaine_du||'')}"></div>
+      <div><label class="f" for="r_au">Au</label><input class="in" type="date" id="r_au" ${ro} value="${esc(r.semaine_au||'')}"></div><div><label class="f" for="r_ba">Bailleur</label><input class="in" id="r_ba" ${ro} value="${esc(r.bailleur||'')}"></div>
+      <div><label class="f">Statut</label><div>${pastilleVal(r.statut)}</div></div></div>`;
+    case 1:return `<h2>1. Résumé exécutif</h2><p class="note">L’essentiel de la semaine en quelques lignes : avancement, faits marquants, points d’attention.</p><textarea class="in" rows="9" id="r_res" ${ro}>${esc(r.resume||'')}</textarea>`;
+    case 2:return `<h2>2. Activités prévues vs réalisées</h2><p class="note">Une ligne par activité ou jalon de la semaine.</p>${editeurTable('activites',lecture)}`;
+    case 3:return `<h2>3. Indicateurs clés (KPI)</h2><div class="form" style="margin-top:10px">${[['personnes_prevues','Personnes prévues'],['personnes_mobilisees','Personnes mobilisées'],['budget_semaine','Budget prévu de la semaine (FCFA)'],['depenses_semaine','Dépenses de la semaine (FCFA)'],['avancement_physique','Avancement physique validé (%)'],['avancement_financier','Avancement financier (%)']]
+      .map(([kk,l])=>`<div><label class="f" for="k_${kk}">${l}</label><input class="in" type="number" id="k_${kk}" ${ro} value="${esc(k[kk]??'')}"></div>`).join('')}</div><h3 style="margin-top:16px">Autres indicateurs</h3>${editeurTable('kpi_autres',lecture)}`;
+    case 4:return `<h2>4. Risques & solutions</h2>${editeurTable('risques',lecture)}`;
+    case 5:return `<h2>5. Plan de la semaine prochaine</h2>${editeurTable('plan',lecture)}`;
+    case 6:return `<h2>6. Besoins / demandes</h2>${editeurTable('besoins',lecture)}`;
+    case 7:{const F=((await sb.from('urb_photos').select('*').eq('projet_id',r.projet_id).order('date',{ascending:false})).data||[]).filter(f=>!r.semaine_du||(f.date>=r.semaine_du&&f.date<=(r.semaine_au||'9')));
+      const sel=r.photos||[];
+      return `<h2>7. Preuves terrain</h2><p class="note">Photos du journal de la semaine. Cochez celles à insérer dans le rapport (6 au plus) et ajustez leur légende.</p>
+       ${F.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:10px">${(await Promise.all(F.map(async f=>{const s=sel.find(x=>x.photo===f.photo);
+        return `<label style="border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;${s?'border-color:#1565C0;background:#F2F7FE':''}"><img alt="" src="${await urlFichier(f.photo)}" style="width:100%;height:120px;object-fit:cover;border-radius:6px">
+         <span style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="phsel" data-p="${esc(f.photo)}" ${s?'checked':''} ${ro}> ${dfr(f.date)}</span><input class="in phleg" data-p="${esc(f.photo)}" ${ro} value="${esc(s?.legende||f.legende||'')}"></label>`;}))).join('')}</div>`:'<p class="note">Aucune photo dans le journal pour cette semaine.</p>'}`;}
+  }
+}
+function collecterRapport(){
+  const r=URB.rap,v=id=>document.getElementById(id);if(!document.getElementById('rapCorps'))return;
+  if(URB.onglet===0&&v('r_cp')){r.chef_projet=v('r_cp').value;r.semaine_du=v('r_du').value||r.semaine_du;r.semaine_au=v('r_au').value||r.semaine_au;r.bailleur=v('r_ba').value;}
+  if(URB.onglet===1&&v('r_res'))r.resume=v('r_res').value;
+  if(URB.onglet===3){r.kpi=r.kpi||{};['personnes_prevues','personnes_mobilisees','budget_semaine','depenses_semaine','avancement_physique','avancement_financier'].forEach(k=>{const e=v('k_'+k);if(e)r.kpi[k]=e.value===''?null:num(e.value);});}
+  const lire=cle=>{const t=document.getElementById('tb_'+cle);if(!t)return null;const rows={};t.querySelectorAll('[data-r]').forEach(e=>{(rows[e.dataset.r]=rows[e.dataset.r]||{})[e.dataset.k]=e.value;});
+    return Object.keys(rows).sort((a,b)=>a-b).map(i=>rows[i]).filter(l=>Object.values(l).some(x=>String(x||'').trim()));};
+  ['activites','risques','plan','besoins'].forEach(c=>{const L=lire(c);if(L)r[c]=L;});const A=lire('kpi_autres');if(A){r.kpi=r.kpi||{};r.kpi.autres=A;}
+  if(URB.onglet===7){const ch=[...document.querySelectorAll('.phsel')];if(ch.length){const leg=p=>[...document.querySelectorAll('.phleg')].find(e=>e.dataset.p===p)?.value||'';
+    r.photos=ch.filter(c=>c.checked).slice(0,6).map(c=>({photo:c.dataset.p,legende:leg(c.dataset.p)}));}}
+}
+async function ongletRapport(i){collecterRapport();URB.onglet=Math.max(0,Math.min(7,i));await route();}
+async function ligneRapport(cle,i){collecterRapport();const r=URB.rap;let L=cle==='kpi_autres'?((r.kpi=r.kpi||{}).autres=r.kpi.autres||[]):(r[cle]=r[cle]||[]);
+  if(i<0)L.push({});else L.splice(i,1);await route();}
+async function sauverRapport(silencieux){
+  const r=URB.rap;if(!r)return;if(!['Brouillon','Rejeté'].includes(r.statut||'Brouillon'))return;collecterRapport();
+  const o={semaine_du:r.semaine_du,semaine_au:r.semaine_au,chef_projet:r.chef_projet||null,bailleur:r.bailleur||null,resume:r.resume||null,activites:r.activites||[],kpi:r.kpi||{},risques:r.risques||[],plan:r.plan||[],besoins:r.besoins||[],photos:r.photos||[],updated_at:new Date().toISOString()};
+  const{error}=await sb.from('urb_rapports').update(o).eq('id',r.id);if(error){toast('Enregistrement impossible : '+error.message);return;}if(!silencieux)toast('Rapport enregistré');
+}
+async function preremplir(){
+  collecterRapport();const r=URB.rap,du=r.semaine_du,au=r.semaine_au;
+  const p=(await sb.from('urb_projets').select('*').eq('id',r.projet_id).single()).data||{},I=await indicateurs(p);
+  const JN=((await sb.from('urb_journal').select('*').eq('projet_id',p.id).order('date',{ascending:true})).data||[]).filter(x=>x.date>=du&&x.date<=au);
+  const vide=k=>!(r[k]&&r[k].length);
+  if(vide('activites')){const parJ={};JN.forEach(x=>{(parJ[x.jalon_id]=parJ[x.jalon_id]||[]).push(x);});
+    r.activites=Object.entries(parJ).map(([jid,L])=>{const j=I.J.find(x=>x.id===jid);const last=L[L.length-1];
+      return{activite:j?.libelle||'Activité',prevu:[...new Set(L.map(x=>x.a_faire).filter(Boolean))].join(' ; '),realise:[...new Set(L.map(x=>x.realise).filter(Boolean))].join(' ; '),taux:last.avancement_jalon??'',commentaire:last.statut==='Validé'?'Validé aux 3 niveaux':'Statut : '+(last.statut||'Brouillon')};});
+    I.J.filter(j=>j.date_prevue>=du&&j.date_prevue<=au&&!parJ[j.id]).forEach(j=>r.activites.push({activite:j.libelle,prevu:'Fin prévue le '+dfr(j.date_prevue),realise:'',taux:num(j.avancement),commentaire:'Aucune saisie cette semaine'}));}
+  r.kpi=r.kpi||{};const eff=JN.map(x=>num(x.effectif)).filter(Boolean);
+  if(r.kpi.personnes_mobilisees==null&&eff.length)r.kpi.personnes_mobilisees=Math.max(...eff);
+  if(r.kpi.depenses_semaine==null)r.kpi.depenses_semaine=I.D.filter(d=>d.type==='Paiement'&&d.date>=du&&d.date<=au).reduce((a,d)=>a+num(d.montant),0);
+  r.kpi.avancement_physique=I.phys;r.kpi.avancement_financier=I.fin;
+  if(vide('risques'))r.risques=I.R.filter(x=>x.statut!=='Clos').map(x=>({risque:x.description,niveau:crit3(x)>=6?'Élevé':crit3(x)>=3?'Moyen':'Faible',solution:x.mesures||'',responsable:x.responsable||'',echeance:x.echeance||''}));
+  if(vide('plan')){const fin=new Date(au+'T12:00:00');fin.setDate(fin.getDate()+7);const f=fin.toISOString().slice(0,10);
+    const der={};JN.forEach(x=>{der[x.jalon_id]=x;});
+    r.plan=[...Object.values(der).filter(x=>x.reste_a_faire).map(x=>({activite:(I.J.find(j=>j.id===x.jalon_id)?.libelle||'')+' : '+x.reste_a_faire,date:'',responsable:I.J.find(j=>j.id===x.jalon_id)?.responsable||''})),
+      ...I.J.filter(j=>j.statut!=='Atteint'&&j.date_prevue>au&&j.date_prevue<=f).map(j=>({activite:'Atteindre le jalon : '+j.libelle,date:j.date_prevue,responsable:j.responsable||''}))];}
+  if(!(r.photos&&r.photos.length)){const F=((await sb.from('urb_photos').select('*').eq('projet_id',p.id)).data||[]).filter(x=>x.date>=du&&x.date<=au).slice(0,6);r.photos=F.map(x=>({photo:x.photo,legende:x.legende||''}));}
+  if(!r.resume){const nb=JN.length,val=JN.filter(x=>x.statut==='Validé').length;
+    r.resume=`Au cours de la semaine du ${dfr(du)} au ${dfr(au)}, ${nb} saisie${nb>1?'s':''} du journal de chantier ${nb>1?'ont été enregistrées':'a été enregistrée'} (${val} validée${val>1?'s':''} aux trois niveaux). L’avancement physique validé du projet atteint ${I.phys} % pour un avancement financier de ${I.fin} %${I.delai!=null?' et un délai consommé de '+I.delai+' %':''}.${I.crit.length?' '+I.crit.length+' risque(s) critique(s) restent ouverts.':''}`;}
+  await sauverRapport(true);toast('Rapport pré-rempli : vérifiez et complétez chaque onglet');await route();
+}
+
+// ── PDF du rapport, à la charte H TECH INNOV ──
+async function imageData(chemin){try{const u=await urlFichier(chemin);if(!u)return null;const b=await (await fetch(u)).blob();
+  const bm=await createImageBitmap(b),k=Math.min(1,1200/Math.max(bm.width,bm.height)),c=document.createElement('canvas');c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);
+  c.getContext('2d').drawImage(bm,0,0,c.width,c.height);return{d:c.toDataURL('image/jpeg',.82),w:c.width,h:c.height};}catch(e){return null;}}
+async function rapportPDF(id){
+  const r=(await sb.from('urb_rapports').select('*').eq('id',id).single()).data;if(!r){toast('Rapport introuvable');return;}
+  const p=(await sb.from('urb_projets').select('*').eq('id',r.projet_id).single()).data||{};
+  const V=((await sb.from('urb_validations').select('*').eq('objet_id',id).order('created_at',{ascending:true})).data||[]);
+  let serie=[];for(const v of V){if(v.decision==='Rejeté'){serie=[];continue;}serie.push(v);}
+  const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'}),W=210,M=14,NAVY=[10,42,102],BLUE=[21,101,192],GREEN=[63,138,30],LIGHT=[237,246,232],GREY=[94,107,130],LINE=[213,224,240];
+  const T=s=>String(s??'').replace(/[\u2018\u2019]/g,"'").replace(/[\u202f\u00a0]/g,' ').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...').replace(/[^\x00-\xFF€]/g,'');
+  let y=0;const bas=270;
+  const entete=()=>{doc.setFillColor(...NAVY);doc.rect(0,0,W,24,'F');doc.setFillColor(...GREEN);doc.rect(W*0.82,24,W*0.18,1.6,'F');doc.setFillColor(...BLUE);doc.rect(0,24,W*0.82,1.6,'F');
+    doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text("RAPPORT HEBDOMADAIRE D'ACTIVITÉS",W/2,13,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.text(T(ESP.nom+' - plateforme H TECH Labs'),W/2,19.5,{align:'center'});y=32;};
+  const place=h=>{if(y+h>bas){doc.addPage();entete();}};
+  const titre=t=>{place(16);doc.setFillColor(...LIGHT);doc.rect(M,y,W-2*M,8,'F');doc.setFillColor(...GREEN);doc.rect(M,y,1.4,8,'F');doc.setTextColor(...GREEN);doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text(T(t),M+4,y+5.5);y+=10;};
+  const texte=t=>{doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(30,40,60);const L=doc.splitTextToSize(T(t||'-'),W-2*M-6);for(const l of L){place(5);doc.text(l,M+3,y+3.5);y+=4.6;}y+=3;};
+  const tableau=(head,body,styles)=>{if(!body.length){texte('Aucun élément.');return;}doc.autoTable({startY:y,margin:{left:M,right:M,top:32,bottom:27},head:[head.map(T)],body:body.map(l=>l.map(T)),theme:'grid',
+    headStyles:{fillColor:NAVY,textColor:255,fontSize:8.5},styles:{fontSize:8.5,cellPadding:1.8,lineColor:LINE,textColor:[30,40,60]},columnStyles:styles||{},didDrawPage:d=>{if(d.pageNumber>1&&d.cursor&&d.cursor.y<40){}}});y=doc.lastAutoTable.finalY+5;};
+  entete();
+  // cartouche
+  doc.setDrawColor(...NAVY);doc.setLineWidth(0.5);doc.rect(M,y,W-2*M,17);doc.setFontSize(9);doc.setTextColor(30,40,60);doc.setFont('helvetica','normal');
+  doc.text(T(`Projet : ${p.nom||''}   |   Semaine : du ${dfr(r.semaine_du)} au ${dfr(r.semaine_au)}   |   Chef de projet : ${r.chef_projet||p.chef_projet||'-'}`),M+3,y+6.5,{maxWidth:W-2*M-6});
+  doc.text(T(`Bailleur : ${r.bailleur||p.bailleur||p.financement||'-'}   |   Statut : ${String(r.statut||'Brouillon').toUpperCase()}`),M+3,y+13);y+=23;
+  titre('1. RÉSUMÉ EXÉCUTIF');texte(r.resume);
+  titre('2. ACTIVITÉS PRÉVUES vs RÉALISÉES');tableau(['Activité / jalon','Prévu','Réalisé','Taux','Commentaire'],(r.activites||[]).map(a=>[a.activite,a.prevu,a.realise,a.taux!==''&&a.taux!=null?a.taux+' %':'',a.commentaire]),{3:{halign:'center',cellWidth:14}});
+  titre('3. INDICATEURS CLÉS (KPI)');const k=r.kpi||{},fm=v=>v==null||v===''?'-':Math.round(num(v)).toLocaleString('fr-FR').replace(/\u202f|\u00a0/g,' ');
+  tableau(['Indicateur','Valeur'],[['Personnes prévues',fm(k.personnes_prevues)],['Personnes mobilisées',fm(k.personnes_mobilisees)],['Budget prévu de la semaine',k.budget_semaine==null?'-':fm(k.budget_semaine)+' FCFA'],['Dépenses de la semaine',k.depenses_semaine==null?'-':fm(k.depenses_semaine)+' FCFA'],['Avancement physique validé',k.avancement_physique==null?'-':k.avancement_physique+' %'],['Avancement financier',k.avancement_financier==null?'-':k.avancement_financier+' %'],...(k.autres||[]).map(a=>[a.indicateur,(a.realise||'-')+(a.cible?' (cible : '+a.cible+')':'')])],{1:{cellWidth:60}});
+  titre('4. RISQUES & SOLUTIONS');tableau(['Risque / problème','Niveau','Solution / mesure','Responsable','Échéance'],(r.risques||[]).map(a=>[a.risque,a.niveau,a.solution,a.responsable,dfr(a.echeance)]));
+  titre('5. PLAN SEMAINE PROCHAINE');tableau(['Activité prévue','Date','Responsable'],(r.plan||[]).map(a=>[a.activite,dfr(a.date),a.responsable]));
+  titre('6. BESOINS / DEMANDES');tableau(['Besoin / demande','Adressé à','Échéance'],(r.besoins||[]).map(a=>[a.besoin,a.destinataire,dfr(a.echeance)]));
+  titre('7. PREUVES TERRAIN');
+  const PH=r.photos||[];if(!PH.length)texte('Aucune photo sélectionnée.');
+  const cw=(W-2*M-6)/2;let col=0,rowH=0;
+  for(const f of PH){const im=await imageData(f.photo);const h=im?Math.min(62,cw*im.h/im.w):30;if(col===0){place(h+10);rowH=0;}
+    const x=M+col*(cw+6);if(im)doc.addImage(im.d,'JPEG',x,y,cw,h);else{doc.setDrawColor(...LINE);doc.rect(x,y,cw,h);doc.setFontSize(8);doc.setTextColor(...GREY);doc.text('Image indisponible',x+cw/2,y+h/2,{align:'center'});}
+    doc.setFontSize(8);doc.setTextColor(...GREY);doc.text(doc.splitTextToSize(T(f.legende||''),cw),x,y+h+4);rowH=Math.max(rowH,h+9);
+    if(col===1){y+=rowH;col=0;}else col=1;}
+  if(col===1)y+=rowH;y+=4;
+  // signatures (3 niveaux de validation) + cachet
+  place(48);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...NAVY);doc.text('VALIDATION, SIGNATURES ET CACHET',W/2,y+4,{align:'center'});y+=8;
+  const bw=(W-2*M-8)/3;[1,2,3].forEach((n,i)=>{const v=serie.find(x=>x.niveau===n&&x.decision==='Validé'),x=M+i*(bw+4),nom=nomMembre(validateurDe(p,n))||'Administrateur de l\'espace';
+    doc.setDrawColor(...LINE);doc.setFillColor(248,250,253);doc.roundedRect(x,y,bw,34,2,2,'FD');doc.setFontSize(7.5);doc.setTextColor(...BLUE);doc.setFont('helvetica','bold');
+    doc.text(T(['NIVEAU 1 - CONDUCTEUR','NIVEAU 2 - CHEF DE PROJET','NIVEAU 3 - MAÎTRE D\'OUVRAGE'][i]),x+3,y+5);doc.setFontSize(8.5);doc.setTextColor(...NAVY);doc.text(T(nom),x+3,y+11,{maxWidth:bw-6});
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(v?63:180,v?138:35,v?30:24);doc.text(T(v?'Validé le '+dfr(v.created_at):'En attente de validation'),x+3,y+17);
+    doc.setTextColor(...GREY);doc.setFontSize(7.5);doc.text('Signature et cachet :',x+3,y+24);});
+  y+=40;
+  const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setDrawColor(...BLUE);doc.setLineWidth(0.4);doc.line(M,285,W-M,285);doc.setFontSize(7.5);doc.setTextColor(...GREY);
+    doc.text(T(`Généré le ${dfr(auj())} - ${ESP.nom} - H TECH Labs, H TECH INNOV`),M,289.5);doc.text(`Page ${i} / ${n}`,W-M,289.5,{align:'right'});}
+  doc.save(T(`Rapport-hebdomadaire-${(p.nom||'projet').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'')}-${r.semaine_du}.pdf`));journal('pdf_rapport_hebdo');
+}
+
+// ── Carte et fiche imprimable (inchangées) ──
 async function dessinerCarte(id){
   const el=document.getElementById(id);if(!el||!window.L)return;const P=(await tous('urb_projets')).filter(p=>p.position_lat!=null);
   const m=L.map(el).setView(P.length?[num(P[0].position_lat),num(P[0].position_lng)]:[5.3364,-4.0267],P.length?12:11);
@@ -316,21 +649,137 @@ async function dessinerCarte(id){
   if(pts.length>1)m.fitBounds(L.featureGroup(pts).getBounds().pad(.2));
   const lg=document.getElementById('legende');if(lg)lg.innerHTML=URB_STATUTS.map(s=>`<span style="display:inline-flex;align-items:center;gap:6px;margin-right:14px"><i style="width:12px;height:12px;border-radius:6px;background:${URB_COUL[s]};display:inline-block"></i>${esc(s)}</span>`).join('');
 }
-// Rapport imprimable d'un projet
 async function rapportProjet(id){
   const p=(await sb.from('urb_projets').select('*').eq('id',id).single()).data;
   const[J,D,V,R]=await Promise.all(['urb_jalons','urb_depenses','urb_visites','urb_risques'].map(k=>sb.from(k).select('*').eq('projet_id',id).then(x=>x.data||[])));
   const paye=D.filter(d=>d.type==='Paiement').reduce((a,d)=>a+num(d.montant),0);
   const w=window.open('','_blank');if(!w){toast('Autorisez les fenêtres pour imprimer');return;}
-  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport — ${esc(p.nom)}</title><style>body{font-family:Arial,sans-serif;color:#1E283C;margin:28px;font-size:13px}h1{color:#0A2A66;font-size:20px;margin:0}h2{color:#0A2A66;font-size:14px;border-bottom:2px solid #1565C0;padding-bottom:3px;margin-top:22px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #D5E0F0;padding:5px 7px;text-align:left}th{background:#F4F7FC}.k{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.k div{border:1px solid #D5E0F0;padding:8px}.k b{display:block;font-size:16px;color:#0A2A66}.pied{margin-top:30px;color:#5E6B82;font-size:11px}</style></head><body>
+  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Fiche — ${esc(p.nom)}</title><style>body{font-family:Arial,sans-serif;color:#1E283C;margin:28px;font-size:13px}h1{color:#0A2A66;font-size:20px;margin:0}h2{color:#0A2A66;font-size:14px;border-bottom:2px solid #1565C0;padding-bottom:3px;margin-top:22px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #D5E0F0;padding:5px 7px;text-align:left}th{background:#F4F7FC}.k{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.k div{border:1px solid #D5E0F0;padding:8px}.k b{display:block;font-size:16px;color:#0A2A66}.pied{margin-top:30px;color:#5E6B82;font-size:11px}</style></head><body>
    <div style="border-top:5px solid #0A2A66;padding-top:10px"><h1>${esc(p.nom)}</h1><p>${esc([p.commune,p.quartier].filter(Boolean).join(', '))} · ${esc(p.secteur||'')} · phase : ${esc(p.statut||'')}</p></div>
-   <div class="k"><div>Avancement physique<b>${num(p.avancement)} %</b></div><div>Avancement financier<b>${p.budget?Math.round(100*paye/num(p.budget)):0} %</b></div><div>Budget<b>${fcfa(p.budget)}</b></div><div>Fin prévue<b>${dfr(p.date_fin_prevue)||'—'}</b></div></div>
+   <div class="k"><div>Avancement physique validé<b>${num(p.avancement)} %</b></div><div>Avancement financier<b>${p.budget?Math.round(100*paye/num(p.budget)):0} %</b></div><div>Budget<b>${fcfa(p.budget)}</b></div><div>Fin prévue<b>${dfr(p.date_fin_prevue)||'—'}</b></div></div>
    <h2>Intervenants</h2><table><tr><th>Maître d’ouvrage</th><td>${esc(p.maitre_ouvrage||'')}</td><th>Maître d’œuvre</th><td>${esc(p.maitre_oeuvre||'')}</td></tr><tr><th>Entreprise</th><td>${esc(p.entreprise||'')}</td><th>Financement</th><td>${esc(p.financement||'')}</td></tr></table>
-   <h2>Jalons</h2><table><tr><th>Jalon</th><th>Prévu</th><th>Réel</th><th>Statut</th></tr>${J.map(j=>`<tr><td>${esc(j.libelle)}</td><td>${dfr(j.date_prevue)}</td><td>${dfr(j.date_reelle)}</td><td>${esc(j.statut||'')}</td></tr>`).join('')||'<tr><td colspan="4">—</td></tr>'}</table>
+   <h2>Jalons</h2><table><tr><th>Jalon</th><th>Prévu</th><th>Atteint</th><th>Avancement</th><th>Statut</th></tr>${J.map(j=>`<tr><td>${esc(j.libelle)}</td><td>${dfr(j.date_prevue)}</td><td>${dfr(j.date_reelle)}</td><td>${num(j.avancement)} %</td><td>${esc(j.statut||'')}</td></tr>`).join('')||'<tr><td colspan="5">—</td></tr>'}</table>
    <h2>Dernières visites</h2><table><tr><th>Date</th><th>Par</th><th>Avancement</th><th>Constats</th></tr>${V.slice(-5).reverse().map(v=>`<tr><td>${dfr(v.date)}</td><td>${esc(v.auteur||'')}</td><td>${v.avancement_constate??''} %</td><td>${esc(v.constats||'')}</td></tr>`).join('')||'<tr><td colspan="4">—</td></tr>'}</table>
-   <h2>Risques et problèmes ouverts</h2><table><tr><th>Description</th><th>Gravité</th><th>Responsable</th><th>Échéance</th></tr>${R.filter(r=>r.statut!=='Clos').map(r=>`<tr><td>${esc(r.description)}</td><td>${esc(r.gravite||'')}</td><td>${esc(r.responsable||'')}</td><td>${dfr(r.echeance)}</td></tr>`).join('')||'<tr><td colspan="4">Aucun</td></tr>'}</table>
-   <p class="pied">Rapport généré le ${dlong(auj())} — ${esc(ESP.nom)} — H TECH Labs, H TECH INNOV</p><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();journal('rapport');
+   <h2>Risques et problèmes ouverts</h2><table><tr><th>Description</th><th>Probabilité</th><th>Impact</th><th>Responsable</th><th>Échéance</th></tr>${R.filter(r=>r.statut!=='Clos').map(r=>`<tr><td>${esc(r.description)}</td><td>${esc(r.probabilite||r.gravite||'')}</td><td>${esc(r.impact||r.gravite||'')}</td><td>${esc(r.responsable||'')}</td><td>${dfr(r.echeance)}</td></tr>`).join('')||'<tr><td colspan="5">Aucun</td></tr>'}</table>
+   <p class="pied">Fiche générée le ${dlong(auj())} — ${esc(ESP.nom)} — H TECH Labs, H TECH INNOV</p><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();journal('rapport');
 }
+
+// ── Règles de la base : validation à 3 niveaux, verrouillage des éléments validés ──
+APP.sqlSupplement=`
+-- ════════ Validation à 3 niveaux : journal de chantier et rapports hebdomadaires ════════
+alter table public.urb_journal alter column statut set default 'Brouillon';
+alter table public.urb_rapports alter column statut set default 'Brouillon';
+create unique index if not exists urb_journal_jalon_jour on public.urb_journal (jalon_id, date) where jalon_id is not null;
+create or replace function public.urb_peut_valider(p_projet uuid, p_niveau int) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.urb_projets p where p.id = p_projet and public.labs_acces(p.tenant_id) and (
+    (case p_niveau when 1 then p.validateur_1 when 2 then p.validateur_2 else p.validateur_3 end) = auth.uid()
+    or ((case p_niveau when 1 then p.validateur_1 when 2 then p.validateur_2 else p.validateur_3 end) is null
+        and exists (select 1 from public.labs_membres m where m.tenant_id = p.tenant_id and m.user_id = auth.uid() and m.role = 'admin'))));
+$$;
+grant execute on function public.urb_peut_valider(uuid, int) to authenticated;
+create or replace function public.urb_valider() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare st text; aut uuid; proj uuid; av numeric; jal uuid; d date; att int; ns text;
+begin
+  if tg_op <> 'INSERT' then raise exception 'Une validation ne peut être ni modifiée ni supprimée'; end if;
+  if new.objet_type = 'journal' then
+    select statut, created_by, projet_id, avancement_jalon, jalon_id, date into st, aut, proj, av, jal, d from public.urb_journal where id = new.objet_id;
+  elsif new.objet_type = 'rapport' then
+    select statut, created_by, projet_id into st, aut, proj from public.urb_rapports where id = new.objet_id;
+  else raise exception 'Type d''élément inconnu'; end if;
+  if st is null then raise exception 'Élément introuvable'; end if;
+  att := case st when 'Soumis' then 1 when 'Validé N1' then 2 when 'Validé N2' then 3 else 0 end;
+  if att = 0 then raise exception 'Cet élément n''est pas en attente de validation (statut : %)', st; end if;
+  if aut = auth.uid() then raise exception 'Vous ne pouvez pas valider votre propre saisie'; end if;
+  if not public.urb_peut_valider(proj, att) then raise exception 'Vous n''êtes pas le validateur de niveau % de ce projet', att; end if;
+  if att > 1 and exists (select 1 from public.urb_validations v where v.objet_id = new.objet_id and v.par = auth.uid() and v.decision = 'Validé'
+       and v.created_at > coalesce((select max(created_at) from public.urb_validations w where w.objet_id = new.objet_id and w.decision = 'Rejeté'), '-infinity')) then
+    raise exception 'Vous avez déjà validé un niveau de cet élément : un autre validateur doit intervenir';
+  end if;
+  if new.decision not in ('Validé','Rejeté') then raise exception 'Décision invalide'; end if;
+  if new.decision = 'Rejeté' and coalesce(trim(new.commentaire), '') = '' then raise exception 'Indiquez le motif du rejet'; end if;
+  new.niveau := att; new.par := auth.uid(); new.projet_id := proj; new.tenant_id := (select tenant_id from public.urb_projets where id = proj);
+  ns := case when new.decision = 'Rejeté' then 'Rejeté' when att = 1 then 'Validé N1' when att = 2 then 'Validé N2' else 'Validé' end;
+  perform set_config('urb.validation', '1', true);
+  if new.objet_type = 'journal' then
+    update public.urb_journal set statut = ns where id = new.objet_id;
+    if ns = 'Validé' and jal is not null then
+      update public.urb_jalons set avancement = greatest(coalesce(avancement, 0), coalesce(av, 0)),
+        statut = case when coalesce(av, 0) >= 100 then 'Atteint' else 'En cours' end,
+        date_reelle = case when coalesce(av, 0) >= 100 then d else date_reelle end where id = jal;
+      update public.urb_projets set avancement = (select round(sum(coalesce(avancement, 0) * coalesce(nullif(poids, 0), 1)) / nullif(sum(coalesce(nullif(poids, 0), 1)), 0))
+        from public.urb_jalons where projet_id = proj) where id = proj;
+    end if;
+  else
+    update public.urb_rapports set statut = ns where id = new.objet_id;
+  end if;
+  perform set_config('urb.validation', '', true);
+  return new;
+end $$;
+drop trigger if exists urb_valider on public.urb_validations;
+create trigger urb_valider before insert or update or delete on public.urb_validations for each row execute function public.urb_valider();
+-- Statut et contenu : seule la validation fait avancer le statut ; un élément soumis ou validé est figé
+create or replace function public.urb_garde() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if current_setting('urb.validation', true) = '1' or auth.uid() is null then return coalesce(new, old); end if;
+  if tg_op = 'INSERT' then
+    if coalesce(new.statut, 'Brouillon') not in ('Brouillon', 'Soumis') then new.statut := 'Brouillon'; end if;
+    new.statut := coalesce(new.statut, 'Brouillon'); return new;
+  end if;
+  if tg_op = 'DELETE' then
+    if old.statut in ('Soumis', 'Validé N1', 'Validé N2', 'Validé') then raise exception 'Élément en validation ou validé : suppression impossible'; end if;
+    return old;
+  end if;
+  if old.statut in ('Soumis', 'Validé N1', 'Validé N2', 'Validé') then
+    if (to_jsonb(new) - 'updated_at') is distinct from (to_jsonb(old) - 'updated_at') then
+      raise exception 'Élément en validation ou validé : modification impossible';
+    end if;
+    return new;
+  end if;
+  if coalesce(new.statut, 'Brouillon') not in ('Brouillon', 'Soumis') then raise exception 'Seule la validation peut changer ce statut'; end if;
+  return new;
+end $$;
+drop trigger if exists urb_garde on public.urb_journal;
+create trigger urb_garde before insert or update or delete on public.urb_journal for each row execute function public.urb_garde();
+drop trigger if exists urb_garde on public.urb_rapports;
+create trigger urb_garde before insert or update or delete on public.urb_rapports for each row execute function public.urb_garde();
+-- Les avancements et statuts de jalon ne viennent que des validations
+create or replace function public.urb_garde_jalon() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if current_setting('urb.validation', true) = '1' or auth.uid() is null then return new; end if;
+  if tg_op = 'INSERT' then new.avancement := 0; new.date_reelle := null; new.statut := case when new.statut = 'Atteint' then 'À venir' else coalesce(new.statut, 'À venir') end; return new; end if;
+  new.avancement := old.avancement; new.date_reelle := old.date_reelle;
+  if new.statut = 'Atteint' and old.statut <> 'Atteint' then new.statut := old.statut; end if;
+  return new;
+end $$;
+drop trigger if exists urb_garde_jalon on public.urb_jalons;
+create trigger urb_garde_jalon before insert or update on public.urb_jalons for each row execute function public.urb_garde_jalon();
+-- Photos : pas d'ajout ni de suppression sur une saisie soumise ou validée
+create or replace function public.urb_garde_photo() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare st text;
+begin
+  if auth.uid() is null then return coalesce(new, old); end if;
+  select statut into st from public.urb_journal where id = coalesce(new.journal_id, old.journal_id);
+  if st in ('Soumis', 'Validé N1', 'Validé N2', 'Validé') then raise exception 'Saisie en validation ou validée : photos figées'; end if;
+  return coalesce(new, old);
+end $$;
+drop trigger if exists urb_garde_photo on public.urb_photos;
+create trigger urb_garde_photo before insert or delete on public.urb_photos for each row execute function public.urb_garde_photo();
+-- Avancement du projet : calculé à partir des jalons validés
+create or replace function public.urb_garde_projet() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if current_setting('urb.validation', true) = '1' or auth.uid() is null then return new; end if;
+  if tg_op = 'INSERT' then new.avancement := 0; else new.avancement := old.avancement; end if;
+  return new;
+end $$;
+drop trigger if exists urb_garde_projet on public.urb_projets;
+create trigger urb_garde_projet before insert or update on public.urb_projets for each row execute function public.urb_garde_projet();
+`;
 
 boot();
 </script>
