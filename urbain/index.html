@@ -273,11 +273,13 @@ const NIV_ATTENDU={'Soumis':1,'Validé N1':2,'Validé N2':3};
 const pastilleVal=s=>{const c=VAL_COUL[s]||VAL_COUL.Brouillon;return `<span class="pastille" style="background:${c[0]};color:${c[1]}">${esc(s||'Brouillon')}</span>`;};
 const nomMembre=id=>MEMBRES.find(m=>m.user_id===id)?.nom||'';
 const NIVEAU_NOMS=['Niveau 1 — Conducteur / chef d’équipe','Niveau 2 — Chef de projet','Niveau 3 — Maître d’ouvrage / bailleur'];
+const lienObjet=n=>n.objet_type==='rapport'?'#rapport/'+n.objet_id:'#fiche/urb_journal/'+n.objet_id;
 var URB={jProjet:null,jDate:null,rap:null,onglet:0};
 
 // ── Validation à 3 niveaux (règles appliquées par la base) ──
-const validateurDe=(p,n)=>p?.['validateur_'+n]||null;
-const peutValider=(p,n,auteur)=>{if(!p||!n||auteur===USER.id)return false;const v=validateurDe(p,n);return v?v===USER.id:ESP.role==='admin';};
+const validateurDe=(o,p,n)=>o?.['validateur_'+n]||p?.['validateur_'+n]||null;
+const peutValider=(o,p,n)=>{if(!o||!n||o.created_by===USER.id)return false;const v=validateurDe(o,p,n);return v?v===USER.id:ESP.role==='admin';};
+var NB_NOTIF=0;
 async function circuit(type,o,p){
   const V=(await sb.from('urb_validations').select('*').eq('objet_id',o.id).order('created_at',{ascending:true})).data||[];
   const dernierSoumis=V.length?V[V.length-1]:null;
@@ -285,21 +287,35 @@ async function circuit(type,o,p){
   let serie=[];for(const v of V){if(v.decision==='Rejeté'){serie=[];continue;}serie.push(v);}
   if(o.statut==='Rejeté'){const r=[...V].reverse().find(v=>v.decision==='Rejeté');serie=r?[r]:[];}
   const att=NIV_ATTENDU[o.statut];
-  const etapes=[1,2,3].map(n=>{const v=serie.find(x=>x.niveau===n),vid=validateurDe(p,n);
+  const etapes=[1,2,3].map(n=>{const v=serie.find(x=>x.niveau===n),vid=validateurDe(o,p,n);
     const etat=v?(v.decision==='Validé'?`<b style="color:#3F8A1E">✓ Validé</b> le ${dfr(v.created_at)} par ${esc(nomMembre(v.par)||'—')}`:`<b style="color:#B42318">✗ Rejeté</b> le ${dfr(v.created_at)} : ${esc(v.commentaire||'')}`):(att===n?'<b style="color:#B45309">En attente</b>':'<span class="note">—</span>');
     return `<div style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:10px;padding:10px;${att===n?'border-color:#F3C98B;background:#FFFBF3':''}"><div style="font-size:12.5px;color:var(--grey);font-weight:600">${esc(NIVEAU_NOMS[n-1])}</div>
       <div style="font-weight:700;color:var(--navy);margin:2px 0">${esc(vid?nomMembre(vid):'Administrateur de l’espace')}</div><div style="font-size:13.5px">${etat}</div></div>`;}).join('');
-  const peut=att&&peutValider(p,att,o.created_by);
+  const peut=att&&peutValider(o,p,att);
   return `<section class="carte"><div class="tete s"><h2>Circuit de validation ${pastilleVal(o.statut)}</h2><div class="actions">
-    ${['Brouillon','Rejeté'].includes(o.statut||'Brouillon')&&o.created_by===USER.id?`<button class="btn p" onclick="soumettre('${type}','${o.id}')">Soumettre à validation</button>`:''}
+    ${['Brouillon','Rejeté'].includes(o.statut||'Brouillon')&&o.created_by===USER.id?`<button class="btn p" onclick="choisirValidateurs('${type}','${o.id}')">Soumettre à validation</button>`:''}
     ${peut?`<button class="btn g" onclick="decider('${type}','${o.id}','Validé')">Valider (niveau ${att})</button><button class="btn" onclick="decider('${type}','${o.id}','Rejeté')">Rejeter</button>`:''}</div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">${etapes}</div>
     ${V.length>serie.length?`<details style="margin-top:8px"><summary class="note">Historique complet (${V.length})</summary><ul class="liste-simple">${V.map(v=>`<li><span>Niveau ${v.niveau} — ${esc(v.decision)}${v.commentaire?' : '+esc(v.commentaire):''}</span><span class="note">${esc(nomMembre(v.par))} · ${dfr(v.created_at)}</span></li>`).join('')}</ul></details>`:''}</section>`;
 }
 const TABLE_DE={journal:'urb_journal',rapport:'urb_rapports'};
+async function choisirValidateurs(type,id){
+  const o=(await sb.from(TABLE_DE[type]).select('*').eq('id',id).single()).data,p=(await sb.from('urb_projets').select('*').eq('id',o.projet_id).single()).data||{};
+  const autres=MEMBRES.filter(m=>m.user_id!==USER.id);
+  if(autres.length<3){toast('Il faut au moins trois autres membres dans l’espace pour constituer le circuit de validation.',7000);return;}
+  const sel=n=>{const d=validateurDe(o,p,n);return `<select class="in" id="cv_${n}"><option value="">Choisir…</option>${autres.map(m=>`<option value="${m.user_id}" ${m.user_id===d?'selected':''}>${esc(m.nom)}</option>`).join('')}</select>`;};
+  dialogue('Soumettre à validation',`<p class="note">Choisissez les trois personnes qui valideront, dans l’ordre. Chacune sera prévenue quand ce sera son tour ; vous serez prévenu de chaque décision.</p>
+    <div class="form">${[1,2,3].map(n=>`<div class="large"><label class="f" for="cv_${n}">${esc(NIVEAU_NOMS[n-1])}</label>${sel(n)}</div>`).join('')}</div><div class="err" id="cvErr"></div>`,
+    `<button class="btn" onclick="fermer()">Annuler</button><button class="btn p" id="cvGo" onclick="soumettre('${type}','${id}')">Soumettre</button>`);
+}
 async function soumettre(type,id){
-  const{error}=await sb.from(TABLE_DE[type]).update({statut:'Soumis',updated_at:new Date().toISOString()}).eq('id',id);
-  if(error){toast('Soumission impossible : '+error.message);return;}journal('soumission_'+type);toast('Soumis à validation');delete CACHE[TABLE_DE[type]];route();
+  const v=[1,2,3].map(n=>document.getElementById('cv_'+n)?.value||'');
+  if(v.some(x=>!x)){document.getElementById('cvErr').textContent='Choisissez un validateur pour chacun des trois niveaux.';return;}
+  if(new Set(v).size<3){document.getElementById('cvErr').textContent='Les trois validateurs doivent être des personnes différentes.';return;}
+  document.getElementById('cvGo').disabled=true;
+  const{error}=await sb.from(TABLE_DE[type]).update({validateur_1:v[0],validateur_2:v[1],validateur_3:v[2],statut:'Soumis',updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){document.getElementById('cvErr').textContent=error.message.replace(/^.*?:\s(?=[A-ZÉ])/,'');document.getElementById('cvGo').disabled=false;return;}
+  fermer();journal('soumission_'+type);toast('Soumis : '+nomMembre(v[0])+' est prévenu(e)');delete CACHE[TABLE_DE[type]];route();
 }
 async function decider(type,id,decision){
   let commentaire=null;if(decision==='Rejeté'){commentaire=prompt('Motif du rejet (transmis à l’auteur) :');if(!commentaire)return;}
@@ -340,11 +356,13 @@ function matriceRisques(R){
 
 const APP={k:'urbain',nom:'Suivi des projets urbains',
  vues:[
+  {k:'notifications',get l(){return 'Notifications'+(NB_NOTIF?' ('+NB_NOTIF+')':'');},i:'M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 003.4 0',rendu:()=>vueNotifications()},
   {k:'journal',l:'Journal de chantier',i:'M8 7V3M16 7V3M4 11h16M5 5h14v15H5zM8 15h5',rendu:()=>vueJournal()},
   {k:'avalider',l:'À valider',i:'M9 11l3 3 8-8M20 12v7H4V5h11',rendu:()=>vueAValider()},
   {k:'carte',l:'Carte des projets',i:'M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',rendu:async()=>`<div class="tete"><div><h1>Carte des projets</h1><p class="note">Cliquez sur un projet pour ouvrir sa fiche. Les projets sans coordonnées n’apparaissent pas.</p></div></div><div id="carte" class="carte" style="height:68vh;padding:0"></div><div id="legende" class="note"></div>`,apres:()=>dessinerCarte('carte')},
   {k:'rapport',l:'Rapport',cache:1,rendu:()=>vueRapport()}],
  sqlSupplement:'',
+ init:async()=>{const{data}=await sb.from('urb_notifications').select('id').eq('destinataire',USER.id).eq('lu',false);NB_NOTIF=(data||[]).length;if(NB_NOTIF)toast(NB_NOTIF+' notification(s) non lue(s)');},
  entites:[
   {k:'urb_projets',nom:'Projets',un:'un projet',i:'M4 20V9l8-5 8 5v11M9 20v-6h6v6',tri:'created_at desc',titre:r=>r.nom,
    champs:[{k:'nom',l:'Nom du projet',req:1,liste:1,large:1},{k:'commune',l:'Commune',liste:1},{k:'quartier',l:'Quartier'},
@@ -354,8 +372,8 @@ const APP={k:'urbain',nom:'Suivi des projets urbains',
     {k:'chef_projet',l:'Chef de projet',aide:'Nom affiché sur les rapports (ex. Awa KONE, PMP)'},{k:'bailleur',l:'Bailleur'},
     {k:'budget',l:'Budget',t:'money',liste:1},{k:'date_debut',l:'Début',t:'date'},{k:'date_fin_prevue',l:'Fin prévue',t:'date',liste:1},
     {k:'avancement',l:'Avancement physique (validé)',t:'pct',liste:1,def:0,auto:1},{k:'position',l:'Localisation',t:'geo'},
-    {k:'validateur_1',l:'Validateur niveau 1 (conducteur / chef d’équipe)',t:'membre'},{k:'validateur_2',l:'Validateur niveau 2 (chef de projet)',t:'membre'},
-    {k:'validateur_3',l:'Validateur niveau 3 (maître d’ouvrage / bailleur)',t:'membre',aide:'Sans validateur désigné, l’administrateur de l’espace valide ce niveau.'},
+    {k:'validateur_1',l:'Validateur proposé — niveau 1 (conducteur / chef d’équipe)',t:'membre'},{k:'validateur_2',l:'Validateur proposé — niveau 2 (chef de projet)',t:'membre'},
+    {k:'validateur_3',l:'Validateur proposé — niveau 3 (maître d’ouvrage / bailleur)',t:'membre',aide:'Proposés par défaut ; l’auteur choisit les validateurs au moment de soumettre.'},
     {k:'description',l:'Description',t:'textarea'}],
    actions:r=>`<button class="btn p" onclick="URB.jProjet='${r.id}';location.hash='#journal'">Journal de chantier</button><button class="btn" onclick="nouveauRapport('${r.id}')">Rapport hebdomadaire</button><button class="btn" onclick="rapportProjet('${r.id}')">Fiche imprimable</button>`,
    avantFiche:async r=>{const I=await indicateurs(r);const att=((await sb.from('urb_journal').select('id,statut').eq('projet_id',r.id)).data||[]).filter(x=>NIV_ATTENDU[x.statut]).length;
@@ -377,19 +395,22 @@ const APP={k:'urbain',nom:'Suivi des projets urbains',
    champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'jalon_id',l:'Jalon',t:'ref',ref:'urb_jalons',liste:1},{k:'date',l:'Date',t:'date',req:1,liste:1,def:auj},
     {k:'a_faire',l:'Ce que je dois faire',t:'textarea'},{k:'realise',l:'Ce que j’ai fait',t:'textarea'},{k:'reste_a_faire',l:'Ce qu’il me reste à faire',t:'textarea'},
     {k:'avancement_jalon',l:'Avancement du jalon déclaré',t:'pct',liste:1},{k:'effectif',l:'Personnes sur le chantier',t:'number'},{k:'meteo',l:'Conditions',t:'select',opts:['Normales','Pluie','Forte pluie','Chaleur','Arrêt de chantier']},
-    {k:'statut',l:'Statut',t:'select',opts:VAL_ST,liste:1,auto:1,def:'Brouillon'}],
+    {k:'statut',l:'Statut',t:'select',opts:VAL_ST,liste:1,auto:1,def:'Brouillon'},{k:'validateur_1',l:'Validateur niveau 1',t:'membre',auto:1},{k:'validateur_2',l:'Validateur niveau 2',t:'membre',auto:1},{k:'validateur_3',l:'Validateur niveau 3',t:'membre',auto:1}],
    avantFiche:async r=>{const p=(await sb.from('urb_projets').select('*').eq('id',r.projet_id).single()).data;return (await galerie(r.id))+(await circuit('journal',r,p));}},
   {k:'urb_photos',nom:'Photos',un:'une photo',cache:1,tri:'date desc',titre:r=>r.legende||'Photo',
    champs:[{k:'journal_id',l:'Saisie',t:'ref',ref:'urb_journal',parent:1,req:1},{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets'},{k:'date',l:'Date',t:'date',def:auj},{k:'photo',l:'Photo',t:'file',accept:'image/*',capture:1,req:1},{k:'legende',l:'Légende',liste:1},{k:'position',l:'Position',t:'geo'}]},
   {k:'urb_validations',nom:'Validations',un:'une validation',cache:1,tri:'created_at desc',titre:r=>r.decision,
    champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets'},{k:'objet_type',l:'Type',t:'select',opts:['journal','rapport'],req:1},{k:'objet_id',l:'Élément',sql:'uuid',req:1},{k:'niveau',l:'Niveau',t:'number'},
     {k:'decision',l:'Décision',t:'select',opts:['Validé','Rejeté'],req:1,liste:1},{k:'commentaire',l:'Commentaire',liste:1},{k:'par',l:'Par',t:'membre',liste:1}]},
+  {k:'urb_notifications',nom:'Notifications',un:'une notification',cache:1,tri:'created_at desc',titre:r=>r.titre,
+   champs:[{k:'destinataire',l:'Destinataire',t:'membre',req:1},{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets'},{k:'objet_type',l:'Type',t:'select',opts:['journal','rapport']},{k:'objet_id',l:'Élément',sql:'uuid'},
+    {k:'titre',l:'Titre',liste:1},{k:'message',l:'Message',t:'textarea',liste:1},{k:'lu',l:'Lu',t:'bool',liste:1}]},
   {k:'urb_rapports',nom:'Rapports hebdomadaires',un:'un rapport',i:'M6 3h8l4 4v14H6zM9 12h6M9 16h6',tri:'semaine_du desc',titre:r=>'Semaine du '+dfr(r.semaine_du)+' au '+dfr(r.semaine_au),
    champs:[{k:'projet_id',l:'Projet',t:'ref',ref:'urb_projets',parent:1,req:1,liste:1},{k:'semaine_du',l:'Semaine du',t:'date',req:1,liste:1},{k:'semaine_au',l:'Au',t:'date',req:1,liste:1},
     {k:'chef_projet',l:'Chef de projet'},{k:'bailleur',l:'Bailleur'},{k:'resume',l:'Résumé exécutif',t:'textarea',cache:1},
     {k:'activites',l:'Activités',auto:1,cache:1,sql:'jsonb'},{k:'kpi',l:'Indicateurs',auto:1,cache:1,sql:'jsonb'},{k:'risques',l:'Risques',auto:1,cache:1,sql:'jsonb'},
     {k:'plan',l:'Plan',auto:1,cache:1,sql:'jsonb'},{k:'besoins',l:'Besoins',auto:1,cache:1,sql:'jsonb'},{k:'photos',l:'Photos',auto:1,cache:1,sql:'jsonb'},
-    {k:'statut',l:'Statut',t:'select',opts:VAL_ST,liste:1,auto:1,def:'Brouillon'}],
+    {k:'statut',l:'Statut',t:'select',opts:VAL_ST,liste:1,auto:1,def:'Brouillon'},{k:'validateur_1',l:'Validateur niveau 1',t:'membre',auto:1},{k:'validateur_2',l:'Validateur niveau 2',t:'membre',auto:1},{k:'validateur_3',l:'Validateur niveau 3',t:'membre',auto:1}],
    avantEnregistrer:async(o,id)=>{if(!id){const p=(await sb.from('urb_projets').select('chef_projet,bailleur').eq('id',o.projet_id).single()).data||{};o.chef_projet=o.chef_projet||p.chef_projet||null;o.bailleur=o.bailleur||p.bailleur||p.financement||null;}},
    apresEnregistrer:async(r,nouveau)=>{if(nouveau){FORM.retour=1;location.hash='#rapport/'+r.id;}},
    actions:r=>`<button class="btn p" onclick="location.hash='#rapport/${r.id}'">Ouvrir le rapport</button><button class="btn" onclick="rapportPDF('${r.id}')">PDF</button>`,
@@ -409,18 +430,28 @@ const APP={k:'urbain',nom:'Suivi des projets urbains',
  accueil:async()=>{
   const P=await charger('urb_projets'),R=(await sb.from('urb_risques').select('*').eq('tenant_id',ESP.tenant_id)).data||[];
   const D=(await sb.from('urb_depenses').select('montant,type').eq('tenant_id',ESP.tenant_id)).data||[];
-  const JN=(await sb.from('urb_journal').select('id,statut,projet_id,created_by').eq('tenant_id',ESP.tenant_id)).data||[];
-  const aMoi=JN.filter(x=>{const p=P.find(q=>q.id===x.projet_id);return peutValider(p,NIV_ATTENDU[x.statut],x.created_by);}).length;
+  const JN=(await sb.from('urb_journal').select('*').eq('tenant_id',ESP.tenant_id)).data||[];
+  const aMoi=JN.filter(x=>peutValider(x,P.find(q=>q.id===x.projet_id),NIV_ATTENDU[x.statut])).length;
   const budget=P.reduce((a,p)=>a+num(p.budget),0),paye=D.filter(d=>d.type==='Paiement').reduce((a,d)=>a+num(d.montant),0);
   const retard=P.filter(p=>p.date_fin_prevue&&p.statut!=='Réceptionné'&&p.date_fin_prevue<auj());
   const moy=P.length?Math.round(P.reduce((a,p)=>a+num(p.avancement),0)/P.length):0;
-  return `<div class="tete"><div><h1>Tableau de bord</h1><p class="note">${P.length} projet${P.length>1?'s':''} suivi${P.length>1?'s':''}</p></div><div class="actions"><button class="btn" onclick="location.hash='#journal'">Saisir le journal du jour</button><button class="btn p" onclick="formulaire('urb_projets')">Ajouter un projet</button></div></div>
+  const NN=((await sb.from('urb_notifications').select('*').eq('destinataire',USER.id).eq('lu',false).order('created_at',{ascending:false}).limit(5)).data||[]);
+  return `${NN.length?`<section class="carte" style="border-color:#F3C98B;background:#FFFBF3"><div class="tete s"><h2>Notifications non lues (${NB_NOTIF})</h2><a class="btn s" href="#notifications">Tout voir</a></div><ul class="liste-simple">${NN.map(n=>`<li><span><a href="${lienObjet(n)}" onclick="lireNotif('${n.id}')"><b>${esc(n.titre)}</b></a><br><span class="note">${esc(n.message||'')}</span></span><span class="note">${dfr(n.created_at)}</span></li>`).join('')}</ul></section>`:''}<div class="tete"><div><h1>Tableau de bord</h1><p class="note">${P.length} projet${P.length>1?'s':''} suivi${P.length>1?'s':''}</p></div><div class="actions"><button class="btn" onclick="location.hash='#journal'">Saisir le journal du jour</button><button class="btn p" onclick="formulaire('urb_projets')">Ajouter un projet</button></div></div>
    <div class="kpis">${kpi('Budget total',fcfa(budget))}${kpi('Consommé',budget?Math.round(100*paye/budget)+' %':'—',fcfa(paye)+' payés')}${kpi('Avancement moyen validé',moy+' %')}${kpi('Projets en retard',retard.length,'',retard.length?'alerte':'ok')}
    ${kpi('Risques critiques ouverts',R.filter(r=>r.statut!=='Clos'&&crit3(r)>=6).length,'',R.some(r=>r.statut!=='Clos'&&crit3(r)>=6)?'alerte':'')}${kpi('À valider par vous',aMoi,'',aMoi?'alerte':'')}</div>
    <section class="carte"><h2>Projets</h2>${P.length?`<div class="tab" style="margin-top:8px"><table><thead><tr><th>Projet</th><th>Phase</th><th>Avancement validé</th><th>Fin prévue</th></tr></thead><tbody>${P.map(p=>`<tr tabindex="0" onclick="location.hash='#fiche/urb_projets/${p.id}'"><td><b>${esc(p.nom)}</b><br><span class="note">${esc(p.commune||'')}</span></td><td><span class="pastille" style="color:${URB_COUL[p.statut]||'#0A2A66'}">${esc(p.statut||'')}</span></td><td><span class="barre-pct"><i style="width:${num(p.avancement)}%"></i></span> ${num(p.avancement)} %</td><td>${dfr(p.date_fin_prevue)}${retard.includes(p)?' <span class="pastille" style="color:#B42318">en retard</span>':''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="note">Aucun projet : commencez par en ajouter un.</p>'}</section>
    <div id="mini" class="carte" style="height:320px;padding:0"></div>`;},
  apresAccueil:()=>dessinerCarte('mini')
 };
+
+// ── Notifications ──
+async function vueNotifications(){
+  const L=(await sb.from('urb_notifications').select('*').eq('destinataire',USER.id).order('created_at',{ascending:false}).limit(100)).data||[];
+  return `<div class="tete"><div><h1>Notifications</h1><p class="note">Soumissions à valider, validations et rejets qui vous concernent.</p></div>${L.some(n=>!n.lu)?'<button class="btn" onclick="toutLire()">Tout marquer comme lu</button>':''}</div>
+   <section class="carte">${L.length?`<ul class="liste-simple">${L.map(n=>`<li style="${n.lu?'opacity:.65':''}"><span>${n.lu?'':'<span class="pastille" style="background:#FEF3E2;color:#B45309">Nouveau</span> '}<a href="${lienObjet(n)}" onclick="lireNotif('${n.id}')"><b>${esc(n.titre)}</b></a><br><span class="note">${esc(n.message||'')}</span></span><span class="note" style="white-space:nowrap">${dfr(n.created_at)}</span></li>`).join('')}</ul>`:'<p class="note">Aucune notification.</p>'}</section>`;
+}
+async function lireNotif(id){await sb.from('urb_notifications').update({lu:true}).eq('id',id);NB_NOTIF=Math.max(0,NB_NOTIF-1);}
+async function toutLire(){await sb.from('urb_notifications').update({lu:true}).eq('destinataire',USER.id).eq('lu',false);NB_NOTIF=0;toast('Notifications marquées comme lues');route();}
 
 // ── Journal de chantier : saisie du jour, jalon par jalon ──
 async function vueJournal(){
@@ -466,8 +497,9 @@ async function sauverJournal(jalonId,soumettreAussi){
       const up=await sb.storage.from(BUCKET).upload(chemin,f,{contentType:f.type||'image/jpeg'});if(up.error){toast('Photo non envoyée : '+up.error.message);continue;}
       const J=(await tous('urb_jalons')).find(x=>x.id===jalonId);
       await sb.from('urb_photos').insert({tenant_id:ESP.tenant_id,journal_id:r.id,projet_id:URB.jProjet,date:URB.jDate,photo:chemin,photo_nom:f.name,legende:(J?.libelle||'')+' — '+dfr(URB.jDate)});n++;}
-    if(soumettreAussi){const{error}=await sb.from('urb_journal').update({statut:'Soumis'}).eq('id',r.id);if(error)throw new Error(error.message);}
-    toast((soumettreAussi?'Saisie soumise à validation':'Saisie enregistrée')+(n?' · '+n+' photo(s)':''));route();
+    toast('Saisie enregistrée'+(n?' · '+n+' photo(s)':''));
+    if(soumettreAussi){await choisirValidateurs('journal',r.id);return;}
+    route();
   }catch(e){toast(e.message);}
 }
 async function galerie(journalId){
@@ -481,7 +513,7 @@ async function vueAValider(){
   const[JN,RP]=await Promise.all([sb.from('urb_journal').select('*').eq('tenant_id',ESP.tenant_id).in('statut',['Soumis','Validé N1','Validé N2']).order('date',{ascending:true}).then(x=>x.data||[]),
     sb.from('urb_rapports').select('*').eq('tenant_id',ESP.tenant_id).in('statut',['Soumis','Validé N1','Validé N2']).then(x=>x.data||[])]);
   const JA=await tous('urb_jalons');
-  const mine=[...JN.map(x=>({t:'journal',o:x})),...RP.map(x=>({t:'rapport',o:x}))].filter(x=>peutValider(pp(x.o.projet_id),NIV_ATTENDU[x.o.statut],x.o.created_by));
+  const mine=[...JN.map(x=>({t:'journal',o:x})),...RP.map(x=>({t:'rapport',o:x}))].filter(x=>peutValider(x.o,pp(x.o.projet_id),NIV_ATTENDU[x.o.statut]));
   const autres=[...JN.map(x=>({t:'journal',o:x})),...RP.map(x=>({t:'rapport',o:x}))].filter(x=>!mine.includes(x));
   const carte=async x=>{const o=x.o,p=pp(o.projet_id),n=NIV_ATTENDU[o.statut];
     const ph=x.t==='journal'?((await sb.from('urb_photos').select('*').eq('journal_id',o.id)).data||[]).slice(0,6):[];
@@ -491,7 +523,7 @@ async function vueAValider(){
      <div class="actions" style="margin-top:10px">${mine.includes(x)?`<button class="btn g" onclick="decider('${x.t}','${o.id}','Validé')">Valider (niveau ${n})</button><button class="btn" onclick="decider('${x.t}','${o.id}','Rejeté')">Rejeter</button>`:''}<a class="btn" href="${x.t==='journal'?'#fiche/urb_journal/'+o.id:'#rapport/'+o.id}">Ouvrir</a>${x.t==='rapport'?`<button class="btn" onclick="rapportPDF('${o.id}')">PDF</button>`:''}</div></section>`;};
   return `<div class="tete"><div><h1>À valider</h1><p class="note">Saisies du journal et rapports qui attendent votre validation. Le circuit compte trois niveaux successifs ; on ne valide jamais sa propre saisie.</p></div></div>
    ${mine.length?(await Promise.all(mine.map(carte))).join(''):'<div class="carte"><p class="note">Rien n’attend votre validation.</p></div>'}
-   ${autres.length?`<section class="carte"><h2>En cours chez d’autres validateurs (${autres.length})</h2><ul class="liste-simple" style="margin-top:8px">${autres.map(x=>`<li><a href="${x.t==='journal'?'#fiche/urb_journal/'+x.o.id:'#rapport/'+x.o.id}">${x.t==='journal'?'Journal du '+dfr(x.o.date):'Rapport du '+dfr(x.o.semaine_du)} — ${esc(pp(x.o.projet_id)?.nom||'')}</a><span>${pastilleVal(x.o.statut)} <span class="note">niveau ${NIV_ATTENDU[x.o.statut]} : ${esc(nomMembre(validateurDe(pp(x.o.projet_id),NIV_ATTENDU[x.o.statut]))||'administrateur')}</span></span></li>`).join('')}</ul></section>`:''}`;
+   ${autres.length?`<section class="carte"><h2>En cours chez d’autres validateurs (${autres.length})</h2><ul class="liste-simple" style="margin-top:8px">${autres.map(x=>`<li><a href="${x.t==='journal'?'#fiche/urb_journal/'+x.o.id:'#rapport/'+x.o.id}">${x.t==='journal'?'Journal du '+dfr(x.o.date):'Rapport du '+dfr(x.o.semaine_du)} — ${esc(pp(x.o.projet_id)?.nom||'')}</a><span>${pastilleVal(x.o.statut)} <span class="note">niveau ${NIV_ATTENDU[x.o.statut]} : ${esc(nomMembre(validateurDe(x.o,pp(x.o.projet_id),NIV_ATTENDU[x.o.statut]))||'administrateur')}</span></span></li>`).join('')}</ul></section>`:''}`;
 }
 
 // ── Rapport hebdomadaire d'activités : saisie par onglets ──
@@ -628,7 +660,7 @@ async function rapportPDF(id){
   if(col===1)y+=rowH;y+=4;
   // signatures (3 niveaux de validation) + cachet
   place(48);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...NAVY);doc.text('VALIDATION, SIGNATURES ET CACHET',W/2,y+4,{align:'center'});y+=8;
-  const bw=(W-2*M-8)/3;[1,2,3].forEach((n,i)=>{const v=serie.find(x=>x.niveau===n&&x.decision==='Validé'),x=M+i*(bw+4),nom=nomMembre(validateurDe(p,n))||'Administrateur de l\'espace';
+  const bw=(W-2*M-8)/3;[1,2,3].forEach((n,i)=>{const v=serie.find(x=>x.niveau===n&&x.decision==='Validé'),x=M+i*(bw+4),nom=nomMembre(validateurDe(r,p,n))||'Non désigné';
     doc.setDrawColor(...LINE);doc.setFillColor(248,250,253);doc.roundedRect(x,y,bw,34,2,2,'FD');doc.setFontSize(7.5);doc.setTextColor(...BLUE);doc.setFont('helvetica','bold');
     doc.text(T(['NIVEAU 1 - CONDUCTEUR','NIVEAU 2 - CHEF DE PROJET','NIVEAU 3 - MAÎTRE D\'OUVRAGE'][i]),x+3,y+5);doc.setFontSize(8.5);doc.setTextColor(...NAVY);doc.text(T(nom),x+3,y+11,{maxWidth:bw-6});
     doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(v?63:180,v?138:35,v?30:24);doc.text(T(v?'Validé le '+dfr(v.created_at):'En attente de validation'),x+3,y+17);
@@ -670,6 +702,16 @@ APP.sqlSupplement=`
 alter table public.urb_journal alter column statut set default 'Brouillon';
 alter table public.urb_rapports alter column statut set default 'Brouillon';
 create unique index if not exists urb_journal_jalon_jour on public.urb_journal (jalon_id, date) where jalon_id is not null;
+-- Notification : créée uniquement par la base
+create or replace function public.urb_notifier(p_tenant uuid, p_dest uuid, p_type text, p_objet uuid, p_projet uuid, p_titre text, p_msg text) returns void
+language sql security definer set search_path = public as $$
+  insert into public.urb_notifications (tenant_id, destinataire, objet_type, objet_id, projet_id, titre, message, lu)
+  select p_tenant, p_dest, p_type, p_objet, p_projet, p_titre, p_msg, false where p_dest is not null;
+$$;
+create or replace function public.urb_nom(p_user uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce((select nom from public.labs_membres where user_id = p_user limit 1), 'Un membre');
+$$;
 create or replace function public.urb_peut_valider(p_projet uuid, p_niveau int) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.urb_projets p where p.id = p_projet and public.labs_acces(p.tenant_id) and (
@@ -680,19 +722,23 @@ $$;
 grant execute on function public.urb_peut_valider(uuid, int) to authenticated;
 create or replace function public.urb_valider() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare st text; aut uuid; proj uuid; av numeric; jal uuid; d date; att int; ns text;
+declare st text; aut uuid; proj uuid; av numeric; jal uuid; d date; att int; ns text; v1 uuid; v2 uuid; v3 uuid; vat uuid; tn uuid; lib text; v uuid;
 begin
   if tg_op <> 'INSERT' then raise exception 'Une validation ne peut être ni modifiée ni supprimée'; end if;
   if new.objet_type = 'journal' then
-    select statut, created_by, projet_id, avancement_jalon, jalon_id, date into st, aut, proj, av, jal, d from public.urb_journal where id = new.objet_id;
+    select statut, created_by, projet_id, avancement_jalon, jalon_id, date, validateur_1, validateur_2, validateur_3 into st, aut, proj, av, jal, d, v1, v2, v3 from public.urb_journal where id = new.objet_id;
+    lib := 'Journal du ' || to_char(d, 'DD/MM/YYYY');
   elsif new.objet_type = 'rapport' then
-    select statut, created_by, projet_id into st, aut, proj from public.urb_rapports where id = new.objet_id;
+    select statut, created_by, projet_id, validateur_1, validateur_2, validateur_3, 'Rapport hebdomadaire du ' || to_char(semaine_du, 'DD/MM/YYYY') into st, aut, proj, v1, v2, v3, lib from public.urb_rapports where id = new.objet_id;
   else raise exception 'Type d''élément inconnu'; end if;
   if st is null then raise exception 'Élément introuvable'; end if;
   att := case st when 'Soumis' then 1 when 'Validé N1' then 2 when 'Validé N2' then 3 else 0 end;
   if att = 0 then raise exception 'Cet élément n''est pas en attente de validation (statut : %)', st; end if;
   if aut = auth.uid() then raise exception 'Vous ne pouvez pas valider votre propre saisie'; end if;
-  if not public.urb_peut_valider(proj, att) then raise exception 'Vous n''êtes pas le validateur de niveau % de ce projet', att; end if;
+  vat := case att when 1 then v1 when 2 then v2 else v3 end;
+  if vat is not null then
+    if vat <> auth.uid() then raise exception 'Vous n''êtes pas le validateur de niveau % de cet élément', att; end if;
+  elsif not public.urb_peut_valider(proj, att) then raise exception 'Vous n''êtes pas le validateur de niveau % de ce projet', att; end if;
   if att > 1 and exists (select 1 from public.urb_validations v where v.objet_id = new.objet_id and v.par = auth.uid() and v.decision = 'Validé'
        and v.created_at > coalesce((select max(created_at) from public.urb_validations w where w.objet_id = new.objet_id and w.decision = 'Rejeté'), '-infinity')) then
     raise exception 'Vous avez déjà validé un niveau de cet élément : un autre validateur doit intervenir';
@@ -715,6 +761,25 @@ begin
     update public.urb_rapports set statut = ns where id = new.objet_id;
   end if;
   perform set_config('urb.validation', '', true);
+  -- Notifications : l'auteur, le validateur suivant, et les autres validateurs du circuit
+  tn := new.tenant_id;
+  perform public.urb_notifier(tn, aut, new.objet_type, new.objet_id, proj,
+    lib || ' — ' || case when new.decision = 'Rejeté' then 'rejeté au niveau ' || att when ns = 'Validé' then 'validé définitivement' else 'validé au niveau ' || att end,
+    public.urb_nom(auth.uid()) || case when new.decision = 'Rejeté' then ' a rejeté votre saisie' else ' a validé' end || coalesce(' : « ' || new.commentaire || ' »', '.') ||
+    case when new.decision = 'Rejeté' then ' Corrigez-la puis soumettez-la de nouveau.' else '' end);
+  if new.decision = 'Validé' and att < 3 then
+    perform public.urb_notifier(tn, case att when 1 then v2 else v3 end, new.objet_type, new.objet_id, proj,
+      lib || ' — à valider (niveau ' || (att + 1) || ')', public.urb_nom(aut) || ' attend votre validation. Niveau ' || att || ' validé par ' || public.urb_nom(auth.uid()) || coalesce(' : « ' || new.commentaire || ' »', '.'));
+  end if;
+  if new.decision = 'Rejeté' or ns = 'Validé' then
+    foreach v in array array[v1, v2, v3] loop
+      if v is not null and v <> auth.uid() and v <> aut then
+        perform public.urb_notifier(tn, v, new.objet_type, new.objet_id, proj,
+          lib || ' — ' || case when new.decision = 'Rejeté' then 'rejeté au niveau ' || att else 'validé définitivement' end,
+          'Décision de ' || public.urb_nom(auth.uid()) || coalesce(' : « ' || new.commentaire || ' »', '.'));
+      end if;
+    end loop;
+  end if;
   return new;
 end $$;
 drop trigger if exists urb_valider on public.urb_validations;
@@ -725,8 +790,7 @@ language plpgsql security definer set search_path = public as $$
 begin
   if current_setting('urb.validation', true) = '1' or auth.uid() is null then return coalesce(new, old); end if;
   if tg_op = 'INSERT' then
-    if coalesce(new.statut, 'Brouillon') not in ('Brouillon', 'Soumis') then new.statut := 'Brouillon'; end if;
-    new.statut := coalesce(new.statut, 'Brouillon'); return new;
+    new.statut := 'Brouillon'; return new;
   end if;
   if tg_op = 'DELETE' then
     if old.statut in ('Soumis', 'Validé N1', 'Validé N2', 'Validé') then raise exception 'Élément en validation ou validé : suppression impossible'; end if;
@@ -739,6 +803,17 @@ begin
     return new;
   end if;
   if coalesce(new.statut, 'Brouillon') not in ('Brouillon', 'Soumis') then raise exception 'Seule la validation peut changer ce statut'; end if;
+  if new.statut = 'Soumis' and old.statut is distinct from 'Soumis' then
+    if new.validateur_1 is null or new.validateur_2 is null or new.validateur_3 is null then raise exception 'Choisissez les trois validateurs avant de soumettre'; end if;
+    if new.validateur_1 = new.validateur_2 or new.validateur_1 = new.validateur_3 or new.validateur_2 = new.validateur_3 then raise exception 'Les trois validateurs doivent être des personnes différentes'; end if;
+    if new.created_by in (new.validateur_1, new.validateur_2, new.validateur_3) then raise exception 'Vous ne pouvez pas être validateur de votre propre saisie'; end if;
+    if exists (select 1 from unnest(array[new.validateur_1, new.validateur_2, new.validateur_3]) x where not exists (select 1 from public.labs_membres m where m.tenant_id = new.tenant_id and m.user_id = x)) then
+      raise exception 'Chaque validateur doit être membre de l''espace'; end if;
+    perform public.urb_notifier(new.tenant_id, new.validateur_1, case tg_table_name when 'urb_rapports' then 'rapport' else 'journal' end, new.id, new.projet_id,
+      case tg_table_name when 'urb_rapports' then 'Rapport hebdomadaire du ' else 'Journal du ' end
+        || to_char(coalesce(to_jsonb(new)->>'semaine_du', to_jsonb(new)->>'date')::date, 'DD/MM/YYYY') || ' — à valider (niveau 1)',
+      public.urb_nom(new.created_by) || ' vous a désigné(e) comme validateur de niveau 1.');
+  end if;
   return new;
 end $$;
 drop trigger if exists urb_garde on public.urb_journal;
@@ -769,6 +844,22 @@ begin
 end $$;
 drop trigger if exists urb_garde_photo on public.urb_photos;
 create trigger urb_garde_photo before insert or delete on public.urb_photos for each row execute function public.urb_garde_photo();
+-- Notifications : confidentielles
+drop policy if exists acces on public.urb_notifications;
+drop policy if exists notif_lecture on public.urb_notifications;
+drop policy if exists notif_lu on public.urb_notifications;
+create policy notif_lecture on public.urb_notifications for select to authenticated using (destinataire = auth.uid() and public.labs_acces(tenant_id));
+create policy notif_lu on public.urb_notifications for update to authenticated using (destinataire = auth.uid()) with check (destinataire = auth.uid());
+create or replace function public.urb_garde_notif() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then return new; end if;
+  if (to_jsonb(new) - 'lu' - 'updated_at') is distinct from (to_jsonb(old) - 'lu' - 'updated_at') then raise exception 'Seul l''indicateur « lu » est modifiable'; end if;
+  return new;
+end $$;
+drop trigger if exists urb_garde_notif on public.urb_notifications;
+create trigger urb_garde_notif before update on public.urb_notifications for each row execute function public.urb_garde_notif();
+
 -- Avancement du projet : calculé à partir des jalons validés
 create or replace function public.urb_garde_projet() returns trigger
 language plpgsql security definer set search_path = public as $$
